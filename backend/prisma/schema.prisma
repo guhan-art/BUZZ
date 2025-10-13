@@ -1,0 +1,30 @@
+// Prisma schema for SQLite
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Bus {
+  id            String  @id
+  name          String
+  route         String
+  departureTime String
+  latitude      Float
+  longitude     Float
+  stops         Stop[]
+}
+
+model Stop {
+  id     Int    @id @default(autoincrement())
+  name   String
+  order  Int
+  busId  String
+  bus    Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([busId])
+  @@unique([busId, order])
+}
