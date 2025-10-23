@@ -1,0 +1,23 @@
+{
+  "expo": {
+    // ...existing code...
+    "name": "buzz-app",
+    "slug": "buzz-app",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.guhans.buzzbackend", // change to a unique ID
+      "versionCode": 1,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDWKuxww1C_pquJzJqe2eDXlmj7X05o2Xc"
+        }
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "62cf2e1d-6666-48c9-b797-8f8b8eb0b98d"
+      }
+    }
+    // ...existing code...
+  }
+}
