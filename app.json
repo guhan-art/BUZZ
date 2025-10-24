@@ -23,7 +23,7 @@
       "package": "com.guhans.buzzapp",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyDWKuxww1C_pquJzJqe2eDXlmj7X05o2Xc"
+          "apiKey": "Map Api Key"
         }
       }
     },
