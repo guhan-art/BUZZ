@@ -1,29 +1,32 @@
-import * as Location from "expo-location";
+import { useDriverLocation } from "@/hooks/use-driver-location";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Button, Text, TextInput, View } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
 
 export default function DriverLogin() {
   const [phone, setPhone] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [busId, setBusId] = useState<string | null>(null);
-  const [isSharing, setIsSharing] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { start, stop, status: locationStatus, lastLocation, lastError } =
+    useDriverLocation(busId, {
+      distanceThreshold: 50,
+      timeThreshold: 15000,
+      enableBackgroundUpdates: true,
+      backgroundService: {
+        notificationTitle: "BUZZ",
+        notificationBody: "Sharing your live location",
+      },
+    });
   const router = useRouter();
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
+  const isSharing = locationStatus === "running";
 
   const login = async () => {
     if (!phone || phone.trim().length < 10) {
       Alert.alert("Error", "Please enter a valid phone number");
       return;
     }
-    setStatus("Logging in...");
+    setStatusMessage("Logging in...");
     try {
       const res = await fetch(`${API_BASE_URL}/driver/login`, {
         method: "POST",
@@ -34,91 +37,77 @@ export default function DriverLogin() {
 
       if (!res.ok || !data?.ok) {
         Alert.alert("Login Failed", data.error || "Invalid driver phone number");
-        setStatus(null);
+        setStatusMessage(null);
         return;
       }
 
       setBusId(String(data.busId));
-      setStatus(`✓ Logged in as driver for Bus ${data.busId}`);
-      await requestLocationAndStart(String(data.busId));
+      setStatusMessage(`✓ Logged in as driver for Bus ${data.busId}`);
     } catch (e) {
       console.error("Login error:", e);
       Alert.alert("Error", "Network request failed. Check your connection.");
-      setStatus(null);
+      setStatusMessage(null);
     }
-  };
-
-  const requestLocationAndStart = async (bId: string) => {
-    setStatus("Requesting location permission...");
-    try {
-      const { status: fg } = await Location.requestForegroundPermissionsAsync();
-      if (fg !== "granted") {
-        Alert.alert("Permission Denied", "Location permission is required to share your bus location.");
-        setStatus("❌ Location permission denied");
-        setBusId(null);
-        return;
-      }
-      setStatus("✓ Location permission granted. Starting location sharing...");
-      startSharing(bId);
-    } catch (error) {
-      console.error("Location permission error:", error);
-      Alert.alert("Error", "Failed to request location permission");
-      setStatus("❌ Permission request failed");
-      setBusId(null);
-    }
-  };
-
-  const startSharing = (bId: string) => {
-    setIsSharing(true);
-
-    const sendOnce = async () => {
-      try {
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        });
-
-        const response = await fetch(`${API_BASE_URL}/driver/location`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            busId: bId,
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          }),
-        });
-
-        if (response.ok) {
-          setStatus(
-            `✓ Sharing location for Bus ${bId}
-Lat: ${loc.coords.latitude.toFixed(6)}
-Lon: ${loc.coords.longitude.toFixed(6)}
-Last update: ${new Date().toLocaleTimeString()}`
-          );
-        } else {
-          console.error("Failed to send location:", await response.text());
-          setStatus("⚠ Failed to send location.");
-        }
-      } catch (e) {
-        console.error("Failed to send location", e);
-        setStatus("⚠ Failed to send location. Retrying...");
-      }
-    };
-
-    sendOnce();
-    intervalRef.current = setInterval(sendOnce, 5000);
   };
 
   const logout = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+    stop();
     setBusId(null);
-    setIsSharing(false);
-    setStatus("Logged out successfully");
+    setStatusMessage("Logged out successfully");
     setPhone("");
     setTimeout(() => router.push("/(tabs)/buslist"), 800);
   };
+
+  useEffect(() => {
+    if (!busId) {
+      return;
+    }
+
+    setStatusMessage("Requesting location permission...");
+    start();
+
+    return () => {
+      stop();
+    };
+  }, [busId, start, stop]);
+
+  useEffect(() => {
+    if (!busId) {
+      return;
+    }
+
+    if (lastError) {
+      setStatusMessage(`⚠ ${lastError}`);
+      if (lastError.toLowerCase().includes("permission")) {
+        Alert.alert(
+          "Location Permission Needed",
+          "Location access is required to share your live bus position."
+        );
+        setBusId(null);
+      }
+    }
+  }, [busId, lastError]);
+
+  useEffect(() => {
+    if (!busId || !lastLocation) {
+      return;
+    }
+
+    if (locationStatus === "running") {
+      const { latitude, longitude } = lastLocation.coords;
+      const lastUpdate = new Date(
+        typeof lastLocation.timestamp === "number"
+          ? lastLocation.timestamp
+          : Date.now()
+      ).toLocaleTimeString();
+      setStatusMessage(
+        `✓ Sharing location for Bus ${busId}
+Lat: ${latitude.toFixed(6)}
+Lon: ${longitude.toFixed(6)}
+Last update: ${lastUpdate}`
+      );
+    }
+  }, [busId, lastLocation, locationStatus]);
 
   return (
     <View style={{ flex: 1, padding: 16, justifyContent: "center", backgroundColor: "#f5f7fa" }}>
@@ -143,7 +132,9 @@ Last update: ${new Date().toLocaleTimeString()}`
             }}
           />
           <Button title="Login & Start Sharing Location" onPress={login} />
-          {status ? <Text style={{ marginTop: 16, textAlign: "center", color: "#555" }}>{status}</Text> : null}
+          {statusMessage ? (
+            <Text style={{ marginTop: 16, textAlign: "center", color: "#555" }}>{statusMessage}</Text>
+          ) : null}
         </>
       ) : (
         <>
@@ -165,7 +156,9 @@ Last update: ${new Date().toLocaleTimeString()}`
             <Text style={{ fontSize: 16, marginBottom: 8 }}>
               {isSharing ? "🟢 Location sharing active" : "🔴 Location sharing inactive"}
             </Text>
-            <Text style={{ fontSize: 14, color: "#555", lineHeight: 20 }}>{status}</Text>
+            <Text style={{ fontSize: 14, color: "#555", lineHeight: 20 }}>
+              {statusMessage ?? "Waiting for location updates..."}
+            </Text>
           </View>
 
           <Button title="Stop & Logout" onPress={logout} color="#d32f2f" />
