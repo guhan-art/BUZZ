@@ -3,7 +3,7 @@ const mysql = require("mysql2/promise");
 const pool = mysql.createPool({
   host: "localhost",
   user: "root",
-  password: "MyBuzz88", // change this to your actual MySQL password
+  password: process.env.DB_PASSWORD || "", // set via env
   database: "bus_tracking",
   waitForConnections: true,
   connectionLimit: 10,

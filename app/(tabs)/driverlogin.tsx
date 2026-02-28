@@ -1,7 +1,15 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, Button, Text, TextInput, View } from "react-native";
+import {
+    Alert,
+    Button,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
 import { API_BASE_URL } from "../../constants/api";
 
 export default function DriverLogin() {
@@ -19,8 +27,9 @@ export default function DriverLogin() {
   }, []);
 
   const login = async () => {
-    if (!phone || phone.trim().length < 10) {
-      Alert.alert("Error", "Please enter a valid phone number");
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone || trimmedPhone.length < 10) {
+      Alert.alert("Error", "Please enter a valid 10-digit phone number");
       return;
     }
     setStatus("Logging in...");
@@ -28,12 +37,15 @@ export default function DriverLogin() {
       const res = await fetch(`${API_BASE_URL}/driver/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: trimmedPhone }),
       });
       const data = await res.json();
 
       if (!res.ok || !data?.ok) {
-        Alert.alert("Login Failed", data.error || "Invalid driver phone number");
+        Alert.alert(
+          "Login Failed",
+          data.error || "Phone number not registered as a driver",
+        );
         setStatus(null);
         return;
       }
@@ -53,7 +65,10 @@ export default function DriverLogin() {
     try {
       const { status: fg } = await Location.requestForegroundPermissionsAsync();
       if (fg !== "granted") {
-        Alert.alert("Permission Denied", "Location permission is required to share your bus location.");
+        Alert.alert(
+          "Permission Denied",
+          "Location permission is required to share your bus location.",
+        );
         setStatus("❌ Location permission denied");
         setBusId(null);
         return;
@@ -92,7 +107,7 @@ export default function DriverLogin() {
             `✓ Sharing location for Bus ${bId}
 Lat: ${loc.coords.latitude.toFixed(6)}
 Lon: ${loc.coords.longitude.toFixed(6)}
-Last update: ${new Date().toLocaleTimeString()}`
+Last update: ${new Date().toLocaleTimeString()}`,
           );
         } else {
           console.error("Failed to send location:", await response.text());
@@ -117,14 +132,37 @@ Last update: ${new Date().toLocaleTimeString()}`
     setIsSharing(false);
     setStatus("Logged out successfully");
     setPhone("");
-    setTimeout(() => router.push("/(tabs)/buslist"), 800);
+    setTimeout(() => router.push("/(tabs)"), 800);
   };
 
   return (
-    <View style={{ flex: 1, padding: 16, justifyContent: "center", backgroundColor: "#f5f7fa" }}>
+    <View
+      style={{
+        flex: 1,
+        padding: 16,
+        paddingTop: 54,
+        backgroundColor: "#f5f7fa",
+      }}
+    >
+      <TouchableOpacity
+        onPress={() => router.push("/(tabs)")}
+        style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}
+      >
+        <Ionicons name="arrow-back" size={24} color="#1976d2" />
+        <Text style={{ color: "#1976d2", fontSize: 16, marginLeft: 6 }}>
+          Home
+        </Text>
+      </TouchableOpacity>
       {!busId ? (
         <>
-          <Text style={{ fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" }}>
+          <Text
+            style={{
+              fontSize: 24,
+              fontWeight: "bold",
+              marginBottom: 20,
+              textAlign: "center",
+            }}
+          >
             Driver Login
           </Text>
           <TextInput
@@ -143,7 +181,11 @@ Last update: ${new Date().toLocaleTimeString()}`
             }}
           />
           <Button title="Login & Start Sharing Location" onPress={login} />
-          {status ? <Text style={{ marginTop: 16, textAlign: "center", color: "#555" }}>{status}</Text> : null}
+          {status ? (
+            <Text style={{ marginTop: 16, textAlign: "center", color: "#555" }}>
+              {status}
+            </Text>
+          ) : null}
         </>
       ) : (
         <>
@@ -159,17 +201,35 @@ Last update: ${new Date().toLocaleTimeString()}`
               elevation: 3,
             }}
           >
-            <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 12, color: "#1976d2" }}>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: "bold",
+                marginBottom: 12,
+                color: "#1976d2",
+              }}
+            >
               🚌 Bus {busId}
             </Text>
             <Text style={{ fontSize: 16, marginBottom: 8 }}>
-              {isSharing ? "🟢 Location sharing active" : "🔴 Location sharing inactive"}
+              {isSharing
+                ? "🟢 Location sharing active"
+                : "🔴 Location sharing inactive"}
             </Text>
-            <Text style={{ fontSize: 14, color: "#555", lineHeight: 20 }}>{status}</Text>
+            <Text style={{ fontSize: 14, color: "#555", lineHeight: 20 }}>
+              {status}
+            </Text>
           </View>
 
           <Button title="Stop & Logout" onPress={logout} color="#d32f2f" />
-          <Text style={{ marginTop: 20, textAlign: "center", color: "#888", fontSize: 12 }}>
+          <Text
+            style={{
+              marginTop: 20,
+              textAlign: "center",
+              color: "#888",
+              fontSize: 12,
+            }}
+          >
             Keep this screen open while driving
           </Text>
         </>

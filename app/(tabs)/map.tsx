@@ -1,7 +1,12 @@
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE, type Region } from "react-native-maps";
+import {
+    MapView,
+    Marker,
+    PROVIDER_GOOGLE,
+    type Region,
+} from "../../components/map-view";
 
 export default function MapScreen() {
   const chennaiRegion: Region = {
@@ -63,7 +68,10 @@ export default function MapScreen() {
       >
         {hasLocation && (
           <Marker
-            coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+            coordinate={{
+              latitude: region.latitude,
+              longitude: region.longitude,
+            }}
             title="You are here"
             pinColor="blue"
           />

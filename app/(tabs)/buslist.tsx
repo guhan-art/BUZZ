@@ -3,13 +3,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
 
@@ -21,6 +21,7 @@ interface Bus {
   longitude: number | null;
   stops: string[];
   departureTime: string;
+  comment: string;
 }
 
 export default function BusListScreen() {
@@ -42,7 +43,10 @@ export default function BusListScreen() {
       setBuses(data);
     } catch (error) {
       console.error("Error fetching buses:", error);
-      Alert.alert("Error", "Could not load bus data. Please check your connection.");
+      Alert.alert(
+        "Error",
+        "Could not load bus data. Please check your connection.",
+      );
     } finally {
       setLoading(false);
     }
@@ -96,12 +100,18 @@ export default function BusListScreen() {
           {item.latitude && item.longitude && (
             <View style={styles.locationContainer}>
               <Ionicons name="pin" size={16} color="#ff9800" />
-              <Text style={styles.locationText}>
-                Live tracking available
-              </Text>
+              <Text style={styles.locationText}>Live tracking available</Text>
             </View>
           )}
         </View>
+
+        {/* Admin Announcement */}
+        {item.comment ? (
+          <View style={styles.commentContainer}>
+            <Ionicons name="megaphone" size={14} color="#e65100" />
+            <Text style={styles.commentText}>{item.comment}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.cardFooter}>
           <Text style={styles.viewDetailsText}>Tap to view details</Text>
@@ -124,7 +134,10 @@ export default function BusListScreen() {
     return (
       <LinearGradient colors={["#e3f2fd", "#ffffff"]} style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => router.push("/(tabs)")}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} color="#1976d2" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Available Buses</Text>
@@ -143,7 +156,10 @@ export default function BusListScreen() {
   return (
     <LinearGradient colors={["#e3f2fd", "#ffffff"]} style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)")}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="#1976d2" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
@@ -299,6 +315,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#ff9800",
     marginLeft: 6,
+    fontWeight: "500",
+  },
+  commentContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff3e0",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  commentText: {
+    fontSize: 13,
+    color: "#e65100",
+    marginLeft: 6,
+    flex: 1,
     fontWeight: "500",
   },
   cardFooter: {

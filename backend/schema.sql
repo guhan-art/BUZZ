@@ -1,15 +1,19 @@
 CREATE DATABASE IF NOT EXISTS bus_tracking;
 USE bus_tracking;
 
-CREATE TABLE IF NOT EXISTS drivers (
-  phone VARCHAR(20) PRIMARY KEY,
-  bus_id VARCHAR(10) NOT NULL,
-  is_active TINYINT(1) DEFAULT 1
+CREATE TABLE IF NOT EXISTS Driver (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  phone VARCHAR(20) UNIQUE NOT NULL,
+  isActive BOOLEAN DEFAULT TRUE,
+  busId INT NOT NULL,
+  FOREIGN KEY (busId) REFERENCES Bus(id) ON DELETE CASCADE,
+  INDEX (busId)
 );
 
--- sample drivers (phone -> bus id from your busData below)
-INSERT INTO drivers (phone, bus_id, is_active) VALUES
-('9994875901', '11', 1),
-('9840948132', '12', 1),
-('7358536800', '13', 1)
-ON DUPLICATE KEY UPDATE bus_id=VALUES(bus_id), is_active=VALUES(is_active);
+-- sample drivers (phone -> busId matches auto-incremented Bus IDs)
+-- Bus 11 = id 1, Bus 33 = id 2, Bus 33B = id 3
+INSERT INTO Driver (phone, busId, isActive) VALUES
+('9994875901', 1, 1),
+('9840948132', 2, 1),
+('7358536800', 3, 1)
+ON DUPLICATE KEY UPDATE busId=VALUES(busId), isActive=VALUES(isActive);

@@ -12,7 +12,9 @@ model Bus {
   number   String @db.VarChar(100)   // e.g., "Bus 11"
   route    String @db.VarChar(255)
   location String @db.VarChar(255)   // "lat,lng" string
+  comment  String @default("") @db.VarChar(500)  // Admin announcement text
   stops    Stop[]
+  drivers  Driver[]
 }
 
 model Stop {
@@ -22,6 +24,16 @@ model Stop {
   lng    Float  @db.Double
   busId  Int
   bus    Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([busId])
+}
+
+model Driver {
+  id       Int    @id @default(autoincrement())
+  phone    String @unique @db.VarChar(20)
+  isActive Boolean @default(true)
+  busId    Int
+  bus      Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
 
   @@index([busId])
 }
