@@ -42,7 +42,7 @@ interface Bus {
   drivers: Driver[];
 }
 
-const ADMIN_PASSWORD = "MyBuzz88";
+const ADMIN_PASSWORD = "XXXXXXXX";
 
 /* ───────────── Password Gate ───────────── */
 function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
