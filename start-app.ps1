@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    BUZZ App – Clean build & start both backend + frontend.
+    BUZZ App - Clean build & start both backend + frontend.
 
 .DESCRIPTION
     0. Ensures MySQL is running (auto-starts via UAC if stopped).
@@ -30,7 +30,7 @@ Write-Host "   BUZZ App  -  Clean Start Script"      -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# ── 0. Ensure MySQL is running ──────────────────────────────────────────────
+# -- 0. Ensure MySQL is running --
 Write-Host "[0/7] Checking MySQL service..." -ForegroundColor Yellow
 $mysqlSvc = Get-Service -Name "MySQL*" -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $mysqlSvc) {
@@ -44,7 +44,7 @@ if (-not $mysqlSvc) {
         if ($mysqlSvc.Status -eq "Running") {
             Write-Host "  -> $($mysqlSvc.Name) is now Running" -ForegroundColor Green
         } else {
-            Write-Host "  -> $($mysqlSvc.Name) status: $($mysqlSvc.Status) — check MySQL logs" -ForegroundColor Red
+            Write-Host "  -> $($mysqlSvc.Name) status: $($mysqlSvc.Status) - check MySQL logs" -ForegroundColor Red
         }
     } catch {
         Write-Host "  -> Failed to start MySQL: $($_.Exception.Message)" -ForegroundColor Red
@@ -53,7 +53,7 @@ if (-not $mysqlSvc) {
     Write-Host "  -> $($mysqlSvc.Name) is Running" -ForegroundColor Green
 }
 
-# ── 1. Kill processes on Backend port ────────────────────────────────────────
+# -- 1. Kill processes on Backend port --
 Write-Host ""
 Write-Host "[1/7] Killing processes on port $BackendPort..." -ForegroundColor Yellow
 $connections = Get-NetTCPConnection -LocalPort $BackendPort -ErrorAction SilentlyContinue
@@ -66,7 +66,7 @@ if ($connections) {
     Write-Host "  -> Port $BackendPort is free" -ForegroundColor Green
 }
 
-# ── 2. Clean Expo / Metro / Android caches ───────────────────────────────────
+# -- 2. Clean Expo / Metro / Android caches --
 Write-Host ""
 Write-Host "[2/7] Clearing old build caches..." -ForegroundColor Yellow
 
@@ -94,7 +94,7 @@ foreach ($p in $cachePaths) {
 
 Write-Host "  -> Caches cleared" -ForegroundColor Green
 
-# ── 3. Install dependencies ──────────────────────────────────────────────────
+# -- 3. Install dependencies --
 if (-not $SkipInstall) {
     Write-Host ""
     Write-Host "[3/7] Installing frontend dependencies..." -ForegroundColor Yellow
@@ -115,7 +115,7 @@ if (-not $SkipInstall) {
     Write-Host "[4/7] Skipping backend install (-SkipInstall)" -ForegroundColor DarkGray
 }
 
-# ── 4. Generate Prisma client (in case schema changed) ───────────────────────
+# -- 4. Generate Prisma client (in case schema changed) --
 Write-Host ""
 Write-Host "[5/7] Generating Prisma client..." -ForegroundColor Yellow
 Push-Location "$root\backend"
@@ -123,7 +123,7 @@ npx prisma generate 2>&1 | Out-Null
 Pop-Location
 Write-Host "  -> Prisma client generated" -ForegroundColor Green
 
-# ── 5. Start backend in background ──────────────────────────────────────────
+# -- 5. Start backend in background --
 Write-Host ""
 Write-Host "[6/7] Starting backend & frontend..." -ForegroundColor Yellow
 
@@ -159,7 +159,7 @@ Write-Host "    Receive-Job -Name BuzzBackend   # view backend logs" -Foreground
 Write-Host "    Stop-Job    -Name BuzzBackend   # stop backend" -ForegroundColor DarkGray
 Write-Host ""
 
-# ── 6. Start Expo (foreground – blocks until you press Ctrl+C) ───────────────
+# -- 6. Start Expo (foreground - blocks until you press Ctrl+C) --
 Push-Location $root
 if ($Web) {
     npx expo start --web --clear
@@ -168,7 +168,7 @@ if ($Web) {
 }
 Pop-Location
 
-# ── Cleanup on exit ─────────────────────────────────────────────────────────
+# -- Cleanup on exit --
 Write-Host ""
 Write-Host "Stopping backend job..." -ForegroundColor Yellow
 Stop-Job -Name "BuzzBackend" -ErrorAction SilentlyContinue

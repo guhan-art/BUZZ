@@ -3,14 +3,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
+import { fetchJsonWithCache } from "../../constants/api-cache";
 
 const { width } = Dimensions.get("window");
 
@@ -18,11 +19,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
-  const card1Anim = useRef(new Animated.Value(0)).current;
-  const card2Anim = useRef(new Animated.Value(0)).current;
-  const card3Anim = useRef(new Animated.Value(0)).current;
-  const card4Anim = useRef(new Animated.Value(0)).current;
+  const cardAnims = useRef(
+    [0, 0, 0, 0].map(() => new Animated.Value(0)),
+  ).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
   const [busCount, setBusCount] = useState<number>(0);
 
   useEffect(() => {
@@ -41,35 +42,20 @@ export default function HomeScreen() {
     ]).start();
 
     // Staggered card animations
-    Animated.stagger(120, [
-      Animated.spring(card1Anim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.spring(card2Anim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.spring(card3Anim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-      Animated.spring(card4Anim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    Animated.stagger(
+      120,
+      cardAnims.map((anim) =>
+        Animated.spring(anim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ),
+    ).start();
 
-    // Pulse animation for bus icon
-    Animated.loop(
+    // Pulse animation for bus icon (captured so we can stop it)
+    pulseRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.15,
@@ -82,18 +68,24 @@ export default function HomeScreen() {
           useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+    pulseRef.current.start();
 
     fetchBusCount();
+
+    // Stop pulse animation on unmount to prevent CPU drain
+    return () => {
+      pulseRef.current?.stop();
+    };
   }, []);
 
   const fetchBusCount = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/buses`);
-      if (response.ok) {
-        const buses = await response.json();
-        setBusCount(buses.length);
-      }
+      const buses = await fetchJsonWithCache<Array<unknown>>(
+        `${API_BASE_URL}/buses`,
+        { ttlMs: 120000 },
+      );
+      setBusCount(buses.length);
     } catch {
       // silent
     }
@@ -148,11 +140,11 @@ export default function HomeScreen() {
 
       {/* Cards */}
       <View style={st.cardsContainer}>
-        {/* View Buses */}
-        <Animated.View style={cardAnimStyle(card1Anim)}>
+        {/* Traveller Login */}
+        <Animated.View style={cardAnimStyle(cardAnims[0])}>
           <TouchableOpacity
             activeOpacity={0.88}
-            onPress={() => router.push("/(tabs)/buslist")}
+            onPress={() => router.push("/travellerlogin")}
           >
             <LinearGradient
               colors={["#11998e", "#38ef7d"]}
@@ -161,12 +153,12 @@ export default function HomeScreen() {
               style={st.card}
             >
               <View style={st.cardIconWrap}>
-                <Ionicons name="bus" size={32} color="#fff" />
+                <Ionicons name="school" size={32} color="#fff" />
               </View>
               <View style={st.cardContent}>
-                <Text style={st.cardTitle}>View Buses</Text>
+                <Text style={st.cardTitle}>Traveller Login</Text>
                 <Text style={st.cardDesc}>
-                  Browse routes, stops & live tracking
+                  Login with SRMIST ID to track your bus
                 </Text>
               </View>
               <Ionicons
@@ -179,7 +171,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Map */}
-        <Animated.View style={cardAnimStyle(card2Anim)}>
+        <Animated.View style={cardAnimStyle(cardAnims[1])}>
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => router.push("/(tabs)/map")}
@@ -209,7 +201,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Driver */}
-        <Animated.View style={cardAnimStyle(card3Anim)}>
+        <Animated.View style={cardAnimStyle(cardAnims[2])}>
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => router.push("/(tabs)/driverlogin")}
@@ -239,7 +231,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Admin Panel */}
-        <Animated.View style={cardAnimStyle(card4Anim)}>
+        <Animated.View style={cardAnimStyle(cardAnims[3])}>
           <TouchableOpacity
             activeOpacity={0.88}
             onPress={() => router.push("/(tabs)/explore")}

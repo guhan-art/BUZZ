@@ -13,8 +13,9 @@ model Bus {
   route    String @db.VarChar(255)
   location String @db.VarChar(255)   // "lat,lng" string
   comment  String @default("") @db.VarChar(500)  // Admin announcement text
-  stops    Stop[]
-  drivers  Driver[]
+  stops      Stop[]
+  drivers    Driver[]
+  travellers Traveller[]
 }
 
 model Stop {
@@ -32,6 +33,17 @@ model Driver {
   id       Int    @id @default(autoincrement())
   phone    String @unique @db.VarChar(20)
   isActive Boolean @default(true)
+  busId    Int
+  bus      Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@index([busId])
+}
+
+model Traveller {
+  id       Int    @id @default(autoincrement())
+  email    String @unique @db.VarChar(100)   // SRMIST Gmail ID
+  password String @db.VarChar(100)
+  name     String @default("") @db.VarChar(150)
   busId    Int
   bus      Bus    @relation(fields: [busId], references: [id], onDelete: Cascade)
 

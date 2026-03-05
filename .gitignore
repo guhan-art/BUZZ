@@ -1,43 +1,88 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ============================================================
+#  BUZZ App — .gitignore
+#  Covers: Expo / React Native / Node.js / Prisma / Android
+# ============================================================
 
-# dependencies
+# ─── Dependencies ────────────────────────────────────────────
 node_modules/
+backend/node_modules/
+.pnp/
+.pnp.js
+.yarn/
 
-# Expo
+# ─── Environment & Secrets ──────────────────────────────────
+# NEVER commit real credentials
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# ─── Expo ────────────────────────────────────────────────────
 .expo/
 dist/
 web-build/
 expo-env.d.ts
+*.hprof
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
+# ─── Metro Bundler ───────────────────────────────────────────
 .metro-health-check*
 
-# debug
+# ─── React Native / Android ─────────────────────────────────
+android/app/build/
+android/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# ─── React Native / iOS ─────────────────────────────────────
+ios/Pods/
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+# ─── Kotlin ──────────────────────────────────────────────────
+.kotlin/
+
+# ─── Prisma ──────────────────────────────────────────────────
+backend/generated/
+
+# ─── Build Outputs ───────────────────────────────────────────
+*.tsbuildinfo
+build/
+
+# ─── OS Files ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.orig.*
+
+# ─── IDE / Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Certificates ───────────────────────────────────────────
+*.pem
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+*.key
+
+# ─── Debug Logs ──────────────────────────────────────────────
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.log
+logs/
 
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+# ─── Misc ────────────────────────────────────────────────────
+app-example/

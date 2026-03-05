@@ -25,6 +25,14 @@ export default function RootLayout() {
           options={{ headerShown: false, title: "Admin Panel", href: null }}
         />
         <Stack.Screen
+          name="travellerlogin"
+          options={{ headerShown: false, title: "Traveller Login", href: null }}
+        />
+        <Stack.Screen
+          name="travellerbus"
+          options={{ headerShown: false, title: "Your Bus", href: null }}
+        />
+        <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
         />

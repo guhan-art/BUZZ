@@ -18,6 +18,7 @@ import {
     PROVIDER_GOOGLE,
 } from "../components/map-view";
 import { API_BASE_URL } from "../constants/api";
+import { fetchJsonWithCache } from "../constants/api-cache";
 
 interface Stop {
   id: number;
@@ -52,9 +53,12 @@ export default function BusDetailsScreen() {
 
   const fetchBusDetails = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/buses/${busId}`);
-      if (!res.ok) throw new Error(`Failed to fetch bus ${busId}`);
-      const data: Bus = await res.json();
+      const data = await fetchJsonWithCache<Bus>(
+        `${API_BASE_URL}/buses/${busId}`,
+        {
+          ttlMs: 30000,
+        },
+      );
       setBus(data);
     } catch (e) {
       console.error("Error fetching bus details:", e);
@@ -112,19 +116,14 @@ export default function BusDetailsScreen() {
 
   // Map rendering function (reusable for both preview and full screen)
   const renderMap = (style: any) => (
-    <MapView
-      provider={PROVIDER_GOOGLE}
-      style={style}
-      initialRegion={region}
-      showsUserLocation
-      showsMyLocationButton
-    >
+    <MapView provider={PROVIDER_GOOGLE} style={style} region={region}>
       {/* Bus current location marker */}
       {hasCoords && (
         <Marker
           coordinate={{ latitude: lat, longitude: lng }}
           title={bus.name}
           description="Current Location"
+          tracksViewChanges={false}
         >
           <View style={styles.busMarker}>
             <Ionicons name="bus" size={22} color="#fff" />
@@ -210,7 +209,7 @@ export default function BusDetailsScreen() {
               <Text style={styles.trackButtonText}>Track</Text>
             </TouchableOpacity>
           </View>
-          {renderMap(styles.map)}
+          {!fullScreenMap && renderMap(styles.map)}
         </View>
 
         {/* Stops List */}
@@ -258,7 +257,7 @@ export default function BusDetailsScreen() {
           </View>
 
           {/* Full Screen Map */}
-          {renderMap(styles.fullScreenMap)}
+          {fullScreenMap && renderMap(styles.fullScreenMap)}
 
           {/* Map Controls Overlay */}
           <View style={styles.mapOverlay}>

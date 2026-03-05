@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
+import { fetchJsonWithCache } from "../../constants/api-cache";
 
 interface Bus {
   id: string;
@@ -33,12 +34,13 @@ export default function BusListScreen() {
     fetchBuses();
   }, []);
 
-  const fetchBuses = async () => {
+  const fetchBuses = async (forceRefresh = false) => {
     try {
       console.log("Fetching buses from:", `${API_BASE_URL}/buses`);
-      const response = await fetch(`${API_BASE_URL}/buses`);
-      if (!response.ok) throw new Error("Failed to fetch buses");
-      const data = await response.json();
+      const data = await fetchJsonWithCache<Bus[]>(`${API_BASE_URL}/buses`, {
+        ttlMs: 60000,
+        forceRefresh,
+      });
       console.log("Fetched buses:", data.length);
       setBuses(data);
     } catch (error) {
@@ -168,7 +170,10 @@ export default function BusListScreen() {
             {buses.length} {buses.length === 1 ? "bus" : "buses"} running
           </Text>
         </View>
-        <TouchableOpacity onPress={fetchBuses} style={styles.refreshButton}>
+        <TouchableOpacity
+          onPress={() => fetchBuses(true)}
+          style={styles.refreshButton}
+        >
           <Ionicons name="refresh" size={24} color="#1976d2" />
         </TouchableOpacity>
       </View>
@@ -180,7 +185,7 @@ export default function BusListScreen() {
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshing={loading}
-        onRefresh={fetchBuses}
+        onRefresh={() => fetchBuses(true)}
       />
     </LinearGradient>
   );

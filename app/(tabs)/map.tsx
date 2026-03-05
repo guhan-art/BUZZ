@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import {
     MapView,
-    Marker,
     PROVIDER_GOOGLE,
     type Region,
 } from "../../components/map-view";
@@ -17,7 +16,6 @@ export default function MapScreen() {
   };
 
   const [region, setRegion] = useState<Region>(chennaiRegion);
-  const [hasLocation, setHasLocation] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,7 +27,9 @@ export default function MapScreen() {
           return; // keep Chennai fallback
         }
 
-        const pos = await Location.getCurrentPositionAsync({});
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
         const next: Region = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -37,7 +37,6 @@ export default function MapScreen() {
           longitudeDelta: 0.05,
         };
         setRegion(next);
-        setHasLocation(true);
       } catch (error) {
         console.error("Error getting location:", error);
         Alert.alert("Error", "Could not get your location. Showing Chennai.");
@@ -64,19 +63,7 @@ export default function MapScreen() {
         initialRegion={region}
         showsUserLocation
         showsMyLocationButton
-        followsUserLocation
-      >
-        {hasLocation && (
-          <Marker
-            coordinate={{
-              latitude: region.latitude,
-              longitude: region.longitude,
-            }}
-            title="You are here"
-            pinColor="blue"
-          />
-        )}
-      </MapView>
+      />
     </View>
   );
 }

@@ -1,14 +1,93 @@
 const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
+const rateLimit = require("express-rate-limit");
 const os = require("os");
+const http = require("http");
+const { WebSocketServer } = require("ws");
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT) || 5000;
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/ws" });
+const busSubscribers = new Map();
 
 app.use(cors());
 app.use(express.json());
+
+// Rate limiting for login endpoints
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { error: "Too many login attempts, try again later" },
+});
+
+function addBusSubscriber(busId, socket) {
+  if (!busSubscribers.has(busId)) {
+    busSubscribers.set(busId, new Set());
+  }
+  busSubscribers.get(busId).add(socket);
+}
+
+function removeBusSubscriber(busId, socket) {
+  const subscribers = busSubscribers.get(busId);
+  if (!subscribers) return;
+  subscribers.delete(socket);
+  if (subscribers.size === 0) {
+    busSubscribers.delete(busId);
+  }
+}
+
+function broadcastBusLocation(busId, payload) {
+  const subscribers = busSubscribers.get(String(busId));
+  if (!subscribers || subscribers.size === 0) return;
+
+  const message = JSON.stringify({
+    type: "bus-location",
+    data: payload,
+  });
+
+  for (const socket of subscribers) {
+    if (socket.readyState === socket.OPEN) {
+      socket.send(message);
+    }
+  }
+}
+
+wss.on("connection", (socket, req) => {
+  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+  const busId = requestUrl.searchParams.get("busId");
+
+  if (!busId) {
+    socket.close(1008, "busId is required");
+    return;
+  }
+
+  socket.isAlive = true;
+  socket.on("pong", () => {
+    socket.isAlive = true;
+  });
+
+  addBusSubscriber(busId, socket);
+
+  socket.on("close", () => {
+    removeBusSubscriber(busId, socket);
+  });
+});
+
+// WebSocket heartbeat: ping every 30s, terminate dead connections
+const WS_HEARTBEAT_INTERVAL = 30000;
+setInterval(() => {
+  wss.clients.forEach((socket) => {
+    if (socket.isAlive === false) {
+      return socket.terminate();
+    }
+    socket.isAlive = false;
+    socket.ping();
+  });
+}, WS_HEARTBEAT_INTERVAL);
 
 function getLanIPv4() {
   const ifaces = os.networkInterfaces();
@@ -54,10 +133,33 @@ app.get("/", (_req, res) => {
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
+// POST /admin/login - Validates admin password server-side
+app.post("/admin/login", loginLimiter, (req, res) => {
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: "password is required" });
+  }
+  if (password === process.env.ADMIN_PASSWORD) {
+    return res.json({ ok: true });
+  }
+  return res.status(401).json({ error: "Incorrect password" });
+});
+
 // GET /buses - Returns list of all buses with basic info
 app.get("/buses", async (_req, res) => {
   try {
-    const buses = await prisma.bus.findMany({ include: { stops: true } });
+    const buses = await prisma.bus.findMany({
+      select: {
+        id: true,
+        number: true,
+        route: true,
+        location: true,
+        comment: true,
+        stops: {
+          select: { name: true },
+        },
+      },
+    });
 
     // Transform for bus list view (separate lat/lng for map markers)
     const transformed = buses.map((bus) => {
@@ -88,7 +190,22 @@ app.get("/buses/:id", async (req, res) => {
     const id = Number(req.params.id);
     const bus = await prisma.bus.findUnique({
       where: { id },
-      include: { stops: true },
+      select: {
+        id: true,
+        number: true,
+        route: true,
+        location: true,
+        comment: true,
+        stops: {
+          select: {
+            id: true,
+            name: true,
+            lat: true,
+            lng: true,
+            busId: true,
+          },
+        },
+      },
     });
 
     if (!bus) return res.status(404).json({ error: "Bus not found" });
@@ -119,7 +236,7 @@ app.get("/buses/:id", async (req, res) => {
 });
 
 // POST /driver/login - Validates phone against MySQL drivers table
-app.post("/driver/login", async (req, res) => {
+app.post("/driver/login", loginLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: "phone required" });
@@ -167,6 +284,14 @@ app.post("/driver/location", async (req, res) => {
       },
     });
 
+    broadcastBusLocation(id, {
+      busId: String(id),
+      location: locationString,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      updatedAt: new Date().toISOString(),
+    });
+
     console.log(`✅ Updated bus ${id} location: ${locationString}`);
     res.json({ ok: true });
   } catch (e) {
@@ -178,6 +303,71 @@ app.post("/driver/location", async (req, res) => {
     }
 
     res.status(500).json({ error: "Failed to update location" });
+  }
+});
+
+// ===================== TRAVELLER LOGIN =====================
+
+// POST /traveller/login - Validates email & password against travellers table
+app.post("/traveller/login", loginLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "email and password are required" });
+    }
+
+    const traveller = await prisma.traveller.findUnique({
+      where: { email: email.toLowerCase().trim() },
+      include: { bus: { include: { stops: true } } },
+    });
+
+    if (!traveller) {
+      console.log(`❌ Traveller login failed: email not found - ${email}`);
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    if (traveller.password !== password) {
+      // Try bcrypt comparison for hashed passwords, fall back to plaintext
+      const isHashed = traveller.password.startsWith("$2");
+      const isValid = isHashed
+        ? await bcrypt.compare(password, traveller.password)
+        : traveller.password === password;
+      if (!isValid) {
+        console.log(`❌ Traveller login failed: wrong password for ${email}`);
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+    }
+
+    const bus = traveller.bus;
+    const { latitude, longitude } = parseLocation(bus.location);
+
+    console.log(`✅ Traveller logged in: ${email}, bus=${bus.number}`);
+    res.json({
+      ok: true,
+      traveller: {
+        id: traveller.id,
+        name: traveller.name,
+        email: traveller.email,
+      },
+      bus: {
+        id: String(bus.id),
+        name: bus.number,
+        route: bus.route,
+        location: bus.location || "0,0",
+        latitude,
+        longitude,
+        stops: bus.stops.map((s) => ({
+          id: s.id,
+          name: s.name,
+          lat: s.lat,
+          lng: s.lng,
+          busId: s.busId,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error("❌ Traveller login error:", err);
+    res.status(500).json({ error: "server error" });
   }
 });
 
@@ -413,12 +603,101 @@ app.delete("/admin/stops/:id", async (req, res) => {
   }
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+// ===================== ADMIN: Travellers CRUD =====================
+
+// GET /admin/travellers - List all travellers with their bus info
+app.get("/admin/travellers", async (_req, res) => {
+  try {
+    const travellers = await prisma.traveller.findMany({
+      include: { bus: { select: { id: true, number: true } } },
+      orderBy: { id: "asc" },
+    });
+    res.json(travellers);
+  } catch (e) {
+    console.error("❌ Admin list travellers error:", e);
+    res.status(500).json({ error: "Failed to fetch travellers" });
+  }
+});
+
+// POST /admin/travellers - Create a new traveller
+app.post("/admin/travellers", async (req, res) => {
+  try {
+    const { email, password, name, busId } = req.body;
+    if (!email || !password || !busId) {
+      return res
+        .status(400)
+        .json({ error: "email, password and busId are required" });
+    }
+    const traveller = await prisma.traveller.create({
+      data: {
+        email: email.toLowerCase().trim(),
+        password,
+        name: name || "",
+        busId: Number(busId),
+      },
+      include: { bus: { select: { id: true, number: true } } },
+    });
+    console.log(`✅ Admin created traveller: ${traveller.email}`);
+    res.status(201).json(traveller);
+  } catch (e) {
+    if (e.code === "P2002")
+      return res.status(409).json({ error: "Email already exists" });
+    if (e.code === "P2003")
+      return res.status(400).json({ error: "Bus not found" });
+    console.error("❌ Admin create traveller error:", e);
+    res.status(500).json({ error: "Failed to create traveller" });
+  }
+});
+
+// PUT /admin/travellers/:id - Update a traveller
+app.put("/admin/travellers/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { email, password, name, busId } = req.body;
+    const traveller = await prisma.traveller.update({
+      where: { id },
+      data: {
+        ...(email !== undefined && { email: email.toLowerCase().trim() }),
+        ...(password !== undefined && { password }),
+        ...(name !== undefined && { name }),
+        ...(busId !== undefined && { busId: Number(busId) }),
+      },
+      include: { bus: { select: { id: true, number: true } } },
+    });
+    console.log(`✅ Admin updated traveller ${id}`);
+    res.json(traveller);
+  } catch (e) {
+    if (e.code === "P2025")
+      return res.status(404).json({ error: "Traveller not found" });
+    if (e.code === "P2002")
+      return res.status(409).json({ error: "Email already exists" });
+    console.error("❌ Admin update traveller error:", e);
+    res.status(500).json({ error: "Failed to update traveller" });
+  }
+});
+
+// DELETE /admin/travellers/:id - Delete a traveller
+app.delete("/admin/travellers/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await prisma.traveller.delete({ where: { id } });
+    console.log(`✅ Admin deleted traveller ${id}`);
+    res.json({ ok: true });
+  } catch (e) {
+    if (e.code === "P2025")
+      return res.status(404).json({ error: "Traveller not found" });
+    console.error("❌ Admin delete traveller error:", e);
+    res.status(500).json({ error: "Failed to delete traveller" });
+  }
+});
+
+server.listen(PORT, "0.0.0.0", () => {
   const ip = getLanIPv4();
   console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`🔌 WebSocket endpoint: ws://localhost:${PORT}/ws?busId=<id>`);
   console.log(`📱 Access from phone: http://${ip}:${PORT}`);
   console.log(
-    `📍 Endpoints:\n   - GET /buses\n   - GET /buses/:id\n   - GET /health\n   - POST /driver/login\n   - POST /driver/location`,
+    `📍 Endpoints:\n   - GET /buses\n   - GET /buses/:id\n   - GET /health\n   - POST /driver/login\n   - POST /driver/location\n   - WS /ws?busId=<id>`,
   );
 });
 

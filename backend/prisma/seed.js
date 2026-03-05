@@ -1,6 +1,8 @@
 // Uses your exact data values; only structure is adjusted to match schema.
 const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 const prisma = new PrismaClient();
+const SALT_ROUNDS = 10;
 
 const busData = [
   {
@@ -57,17 +59,64 @@ const busData = [
   },
 ];
 
-// Driver data: phone -> bus number mapping
+// Driver data: phone -> bus number mapping (use placeholder numbers)
 const driverData = [
-  { phone: "9994875901", busNumber: "Bus 11" },
-  { phone: "9840948132", busNumber: "Bus 33" },
-  { phone: "7358536800", busNumber: "Bus 33B" },
+  { phone: "0000000001", busNumber: "Bus 11" },
+  { phone: "0000000002", busNumber: "Bus 33" },
+  { phone: "0000000003", busNumber: "Bus 33B" },
+];
+
+// Traveller data: SRMIST Gmail ID, password, name, bus number
+const travellerData = [
+  {
+    email: "gs1234@srmist.edu.in",
+    password: "srm@1234",
+    name: "Guhan Raj S",
+    busNumber: "Bus 11",
+  },
+  {
+    email: "ak5678@srmist.edu.in",
+    password: "srm@5678",
+    name: "Arun Kumar",
+    busNumber: "Bus 33",
+  },
+  {
+    email: "ps9012@srmist.edu.in",
+    password: "srm@9012",
+    name: "Priya Sharma",
+    busNumber: "Bus 33B",
+  },
+  {
+    email: "rm3456@srmist.edu.in",
+    password: "srm@3456",
+    name: "Rahul Menon",
+    busNumber: "Bus 11B",
+  },
+  {
+    email: "dk7890@srmist.edu.in",
+    password: "srm@7890",
+    name: "Deepa K",
+    busNumber: "Bus 11C",
+  },
+  {
+    email: "vn2345@srmist.edu.in",
+    password: "srm@2345",
+    name: "Vikram N",
+    busNumber: "Bus 11",
+  },
+  {
+    email: "sj6789@srmist.edu.in",
+    password: "srm@6789",
+    name: "Sneha J",
+    busNumber: "Bus 33",
+  },
 ];
 
 async function main() {
   console.log("Seeding database...");
 
   // Delete in correct order (respect foreign keys)
+  await prisma.traveller.deleteMany();
   await prisma.driver.deleteMany();
   await prisma.stop.deleteMany();
   await prisma.bus.deleteMany();
@@ -105,6 +154,29 @@ async function main() {
     });
   }
   console.log("✅ Seeded 3 drivers");
+
+  // Seed travellers – look up the actual bus ID by bus number
+  for (const trv of travellerData) {
+    const bus = await prisma.bus.findFirst({
+      where: { number: trv.busNumber },
+    });
+    if (!bus) {
+      console.warn(
+        `⚠ Bus "${trv.busNumber}" not found, skipping traveller ${trv.email}`,
+      );
+      continue;
+    }
+    const hashedPassword = await bcrypt.hash(trv.password, SALT_ROUNDS);
+    await prisma.traveller.create({
+      data: {
+        email: trv.email,
+        password: hashedPassword,
+        name: trv.name,
+        busId: bus.id,
+      },
+    });
+  }
+  console.log(`✅ Seeded ${travellerData.length} travellers`);
 }
 
 main()

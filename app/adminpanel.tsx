@@ -1,692 +1,356 @@
-import { Ionicons } from "@expo/vector-icons";
+﻿import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { API_BASE_URL } from "../constants/api";
-
-/* ───────────── Types ───────────── */
-interface Stop {
-  id: number;
-  name: string;
-  lat: number;
-  lng: number;
-  busId: number;
-}
-
-interface Driver {
-  id: number;
-  phone: string;
-  isActive: boolean;
-  busId: number;
-  bus?: { id: number; number: string };
-}
 
 interface Bus {
   id: number;
   number: string;
   route: string;
-  location: string;
-  stops: Stop[];
-  drivers: Driver[];
+  comment: string;
 }
 
-/* ───────────── Main Component ───────────── */
 export default function AdminPanel() {
   const router = useRouter();
-  const [tab, setTab] = useState<"buses" | "drivers">("buses");
 
-  // ─── Bus state ───
   const [buses, setBuses] = useState<Bus[]>([]);
-  const [loadingBuses, setLoadingBuses] = useState(true);
-  const [busModalVisible, setBusModalVisible] = useState(false);
-  const [editingBus, setEditingBus] = useState<Bus | null>(null);
-  const [busNumber, setBusNumber] = useState("");
-  const [busRoute, setBusRoute] = useState("");
-  const [busLocation, setBusLocation] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busComments, setBusComments] = useState<Record<number, string>>({});
+  const [savingBusId, setSavingBusId] = useState<number | null>(null);
 
-  // ─── Stop add state ───
-  const [stopModalVisible, setStopModalVisible] = useState(false);
-  const [stopBusId, setStopBusId] = useState<number | null>(null);
-  const [stopName, setStopName] = useState("");
-  const [stopLat, setStopLat] = useState("");
-  const [stopLng, setStopLng] = useState("");
+  // Global announcement
+  const [globalComment, setGlobalComment] = useState("");
+  const [savingGlobal, setSavingGlobal] = useState(false);
 
-  // ─── Driver state ───
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [loadingDrivers, setLoadingDrivers] = useState(true);
-  const [driverModalVisible, setDriverModalVisible] = useState(false);
-  const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
-  const [driverPhone, setDriverPhone] = useState("");
-  const [driverBusId, setDriverBusId] = useState("");
-  const [driverActive, setDriverActive] = useState(true);
-
-  /* ─────────── Fetch helpers ─────────── */
   const fetchBuses = useCallback(async () => {
-    setLoadingBuses(true);
+    setLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/admin/buses`);
-      const data = await res.json();
+      const data: Bus[] = await res.json();
       setBuses(data);
+      const comments: Record<number, string> = {};
+      data.forEach((b) => {
+        comments[b.id] = b.comment || "";
+      });
+      setBusComments(comments);
     } catch {
       Alert.alert("Error", "Could not load buses");
     } finally {
-      setLoadingBuses(false);
-    }
-  }, []);
-
-  const fetchDrivers = useCallback(async () => {
-    setLoadingDrivers(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/drivers`);
-      const data = await res.json();
-      setDrivers(data);
-    } catch {
-      Alert.alert("Error", "Could not load drivers");
-    } finally {
-      setLoadingDrivers(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchBuses();
-    fetchDrivers();
-  }, [fetchBuses, fetchDrivers]);
+  }, [fetchBuses]);
 
-  /* ═══════════════ BUS CRUD ═══════════════ */
-
-  const openAddBus = () => {
-    setEditingBus(null);
-    setBusNumber("");
-    setBusRoute("");
-    setBusLocation("0,0");
-    setBusModalVisible(true);
-  };
-
-  const openEditBus = (bus: Bus) => {
-    setEditingBus(bus);
-    setBusNumber(bus.number);
-    setBusRoute(bus.route);
-    setBusLocation(bus.location);
-    setBusModalVisible(true);
-  };
-
-  const saveBus = async () => {
-    if (!busNumber.trim() || !busRoute.trim()) {
-      Alert.alert("Error", "Bus number and route are required");
-      return;
-    }
+  // Save comment for a single bus
+  const saveBusComment = async (bus: Bus) => {
+    Keyboard.dismiss();
+    const newComment = (busComments[bus.id] || "").trim();
+    setSavingBusId(bus.id);
     try {
-      if (editingBus) {
-        const res = await fetch(
-          `${API_BASE_URL}/admin/buses/${editingBus.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              number: busNumber.trim(),
-              route: busRoute.trim(),
-              location: busLocation.trim() || "0,0",
-            }),
-          },
-        );
-        if (!res.ok) throw new Error((await res.json()).error);
-      } else {
-        const res = await fetch(`${API_BASE_URL}/admin/buses`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            number: busNumber.trim(),
-            route: busRoute.trim(),
-            location: busLocation.trim() || "0,0",
-          }),
-        });
-        if (!res.ok) throw new Error((await res.json()).error);
-      }
-      setBusModalVisible(false);
-      fetchBuses();
-    } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to save bus");
-    }
-  };
-
-  const deleteBus = (bus: Bus) => {
-    Alert.alert(
-      "Delete Bus",
-      `Delete "${bus.number}"? This also removes its stops and drivers.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await fetch(`${API_BASE_URL}/admin/buses/${bus.id}`, {
-                method: "DELETE",
-              });
-              fetchBuses();
-              fetchDrivers();
-            } catch {
-              Alert.alert("Error", "Failed to delete bus");
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  /* ─── Stop add/remove ─── */
-  const openAddStop = (busId: number) => {
-    setStopBusId(busId);
-    setStopName("");
-    setStopLat("");
-    setStopLng("");
-    setStopModalVisible(true);
-  };
-
-  const saveStop = async () => {
-    if (!stopName.trim() || !stopLat.trim() || !stopLng.trim() || !stopBusId) {
-      Alert.alert("Error", "All stop fields are required");
-      return;
-    }
-    try {
-      const res = await fetch(`${API_BASE_URL}/admin/stops`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: stopName.trim(),
-          lat: Number(stopLat),
-          lng: Number(stopLng),
-          busId: stopBusId,
-        }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error);
-      setStopModalVisible(false);
-      fetchBuses();
-    } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to add stop");
-    }
-  };
-
-  const deleteStop = (stop: Stop) => {
-    Alert.alert("Delete Stop", `Remove "${stop.name}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await fetch(`${API_BASE_URL}/admin/stops/${stop.id}`, {
-              method: "DELETE",
-            });
-            fetchBuses();
-          } catch {
-            Alert.alert("Error", "Failed to delete stop");
-          }
-        },
-      },
-    ]);
-  };
-
-  /* ═══════════════ DRIVER CRUD ═══════════════ */
-
-  const openAddDriver = () => {
-    setEditingDriver(null);
-    setDriverPhone("");
-    setDriverBusId(buses.length > 0 ? String(buses[0].id) : "");
-    setDriverActive(true);
-    setDriverModalVisible(true);
-  };
-
-  const openEditDriver = (d: Driver) => {
-    setEditingDriver(d);
-    setDriverPhone(d.phone);
-    setDriverBusId(String(d.busId));
-    setDriverActive(d.isActive);
-    setDriverModalVisible(true);
-  };
-
-  const saveDriver = async () => {
-    if (!driverPhone.trim() || !driverBusId.trim()) {
-      Alert.alert("Error", "Phone and Bus are required");
-      return;
-    }
-    try {
-      if (editingDriver) {
-        const res = await fetch(
-          `${API_BASE_URL}/admin/drivers/${editingDriver.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              phone: driverPhone.trim(),
-              busId: Number(driverBusId),
-              isActive: driverActive,
-            }),
-          },
-        );
-        if (!res.ok) throw new Error((await res.json()).error);
-      } else {
-        const res = await fetch(`${API_BASE_URL}/admin/drivers`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: driverPhone.trim(),
-            busId: Number(driverBusId),
-            isActive: driverActive,
-          }),
-        });
-        if (!res.ok) throw new Error((await res.json()).error);
-      }
-      setDriverModalVisible(false);
-      fetchDrivers();
-    } catch (e: any) {
-      Alert.alert("Error", e.message || "Failed to save driver");
-    }
-  };
-
-  const deleteDriver = (d: Driver) => {
-    Alert.alert("Delete Driver", `Remove driver "${d.phone}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await fetch(`${API_BASE_URL}/admin/drivers/${d.id}`, {
-              method: "DELETE",
-            });
-            fetchDrivers();
-          } catch {
-            Alert.alert("Error", "Failed to delete driver");
-          }
-        },
-      },
-    ]);
-  };
-
-  const toggleDriverActive = async (d: Driver) => {
-    try {
-      await fetch(`${API_BASE_URL}/admin/drivers/${d.id}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/buses/${bus.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !d.isActive }),
+        body: JSON.stringify({ comment: newComment }),
       });
-      fetchDrivers();
+      if (!res.ok) throw new Error("Failed");
+      // Update local state
+      setBuses((prev) =>
+        prev.map((b) => (b.id === bus.id ? { ...b, comment: newComment } : b)),
+      );
+      Alert.alert("Saved", `Comment updated for ${bus.number}`);
     } catch {
-      Alert.alert("Error", "Failed to update driver status");
+      Alert.alert("Error", `Failed to update comment for ${bus.number}`);
+    } finally {
+      setSavingBusId(null);
     }
   };
 
-  /* ═══════════════ RENDER ═══════════════ */
+  // Clear comment for a single bus
+  const clearBusComment = (bus: Bus) => {
+    Alert.alert("Clear Comment", `Remove comment from ${bus.number}?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear",
+        style: "destructive",
+        onPress: async () => {
+          setSavingBusId(bus.id);
+          try {
+            await fetch(`${API_BASE_URL}/admin/buses/${bus.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ comment: "" }),
+            });
+            setBuses((prev) =>
+              prev.map((b) =>
+                b.id === bus.id ? { ...b, comment: "" } : b,
+              ),
+            );
+            setBusComments((prev) => ({ ...prev, [bus.id]: "" }));
+          } catch {
+            Alert.alert("Error", "Failed to clear comment");
+          } finally {
+            setSavingBusId(null);
+          }
+        },
+      },
+    ]);
+  };
 
-  const renderBusItem = ({ item }: { item: Bus }) => (
-    <View style={s.card}>
-      <View style={s.cardHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.cardTitle}>{item.number}</Text>
-          <Text style={s.cardSub}>{item.route}</Text>
-          <Text style={s.cardMeta}>Location: {item.location}</Text>
-        </View>
-        <View style={s.cardActions}>
-          <TouchableOpacity onPress={() => openEditBus(item)} style={s.iconBtn}>
-            <Ionicons name="create-outline" size={22} color="#1976d2" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => deleteBus(item)} style={s.iconBtn}>
-            <Ionicons name="trash-outline" size={22} color="#d32f2f" />
-          </TouchableOpacity>
-        </View>
-      </View>
+  // Global: set same comment for ALL buses
+  const saveGlobalComment = async () => {
+    Keyboard.dismiss();
+    if (!globalComment.trim()) {
+      Alert.alert("Error", "Please type a comment first");
+      return;
+    }
+    setSavingGlobal(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/announcement`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: globalComment.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      // Refresh buses to show updated comments
+      await fetchBuses();
+      setGlobalComment("");
+      Alert.alert("Done", "Comment applied to all buses!");
+    } catch {
+      Alert.alert("Error", "Failed to update announcement");
+    } finally {
+      setSavingGlobal(false);
+    }
+  };
 
-      {/* Stops */}
-      <View style={s.stopsSection}>
-        <View style={s.stopsHeader}>
-          <Text style={s.stopsTitle}>Stops ({item.stops.length})</Text>
-          <TouchableOpacity
-            onPress={() => openAddStop(item.id)}
-            style={s.addStopBtn}
-          >
-            <Ionicons name="add-circle" size={18} color="#388e3c" />
-            <Text style={s.addStopText}>Add</Text>
-          </TouchableOpacity>
-        </View>
-        {item.stops.map((stop) => (
-          <View key={stop.id} style={s.stopRow}>
-            <Text style={s.stopName}>
-              {stop.name}{" "}
-              <Text style={s.stopCoords}>
-                ({stop.lat.toFixed(4)}, {stop.lng.toFixed(4)})
-              </Text>
-            </Text>
-            <TouchableOpacity onPress={() => deleteStop(stop)}>
-              <Ionicons name="close-circle" size={18} color="#d32f2f" />
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
+  // Clear all bus comments
+  const clearAllComments = () => {
+    Alert.alert("Clear All", "Remove comments from ALL buses?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear All",
+        style: "destructive",
+        onPress: async () => {
+          setSavingGlobal(true);
+          try {
+            await fetch(`${API_BASE_URL}/admin/announcement`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ comment: "" }),
+            });
+            await fetchBuses();
+            Alert.alert("Done", "All comments cleared");
+          } catch {
+            Alert.alert("Error", "Failed to clear comments");
+          } finally {
+            setSavingGlobal(false);
+          }
+        },
+      },
+    ]);
+  };
 
-      {/* Drivers assigned */}
-      {item.drivers.length > 0 && (
-        <View style={s.driverBadges}>
-          <Text style={{ fontSize: 12, color: "#666", marginRight: 6 }}>
-            Drivers:
-          </Text>
-          {item.drivers.map((d) => (
-            <View key={d.id} style={[s.badge, !d.isActive && s.badgeInactive]}>
-              <Text style={s.badgeText}>{d.phone}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-
-  const renderDriverItem = ({ item }: { item: Driver }) => (
-    <View style={s.card}>
-      <View style={s.cardHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.cardTitle}>{item.phone}</Text>
-          <Text style={s.cardSub}>
-            Assigned to: {item.bus?.number || `Bus ID ${item.busId}`}
-          </Text>
-          <TouchableOpacity onPress={() => toggleDriverActive(item)}>
-            <Text style={[s.statusText, item.isActive ? s.active : s.inactive]}>
-              {item.isActive ? "● Active" : "● Inactive"} (tap to toggle)
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <View style={s.cardActions}>
-          <TouchableOpacity
-            onPress={() => openEditDriver(item)}
-            style={s.iconBtn}
-          >
-            <Ionicons name="create-outline" size={22} color="#1976d2" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => deleteDriver(item)}
-            style={s.iconBtn}
-          >
-            <Ionicons name="trash-outline" size={22} color="#d32f2f" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+  const hasCommentChanged = (bus: Bus) =>
+    (busComments[bus.id] || "").trim() !== (bus.comment || "");
 
   return (
     <View style={s.container}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#1976d2" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Admin Panel</Text>
       </View>
 
-      {/* Tab Switcher */}
-      <View style={s.tabs}>
-        <TouchableOpacity
-          style={[s.tabBtn, tab === "buses" && s.tabActive]}
-          onPress={() => setTab("buses")}
-        >
-          <Ionicons
-            name="bus"
-            size={18}
-            color={tab === "buses" ? "#fff" : "#1976d2"}
-          />
-          <Text style={[s.tabText, tab === "buses" && s.tabTextActive]}>
-            Buses
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.tabBtn, tab === "drivers" && s.tabActive]}
-          onPress={() => setTab("drivers")}
-        >
-          <Ionicons
-            name="person"
-            size={18}
-            color={tab === "drivers" ? "#fff" : "#1976d2"}
-          />
-          <Text style={[s.tabText, tab === "drivers" && s.tabTextActive]}>
-            Drivers
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {tab === "buses" ? (
-        <>
-          <TouchableOpacity style={s.fab} onPress={openAddBus}>
-            <Ionicons name="add" size={20} color="#fff" />
-            <Text style={s.fabText}>Add Bus</Text>
-          </TouchableOpacity>
-          {loadingBuses ? (
-            <ActivityIndicator
-              size="large"
-              color="#1976d2"
-              style={{ marginTop: 40 }}
-            />
-          ) : (
-            <FlatList
-              data={buses}
-              keyExtractor={(b) => String(b.id)}
-              renderItem={renderBusItem}
-              contentContainerStyle={{ paddingBottom: 100 }}
-              ListEmptyComponent={
-                <Text style={s.emptyText}>
-                  No buses yet. Tap "Add Bus" to create one.
-                </Text>
-              }
-              onRefresh={fetchBuses}
-              refreshing={loadingBuses}
-            />
-          )}
-        </>
+      {loading ? (
+        <ActivityIndicator
+          size="large"
+          color="#1976d2"
+          style={{ marginTop: 60 }}
+        />
       ) : (
-        <>
-          <TouchableOpacity style={s.fab} onPress={openAddDriver}>
-            <Ionicons name="add" size={20} color="#fff" />
-            <Text style={s.fabText}>Add Driver</Text>
-          </TouchableOpacity>
-          {loadingDrivers ? (
-            <ActivityIndicator
-              size="large"
-              color="#1976d2"
-              style={{ marginTop: 40 }}
-            />
-          ) : (
-            <FlatList
-              data={drivers}
-              keyExtractor={(d) => String(d.id)}
-              renderItem={renderDriverItem}
-              contentContainerStyle={{ paddingBottom: 100 }}
-              ListEmptyComponent={
-                <Text style={s.emptyText}>
-                  No drivers yet. Tap "Add Driver" to create one.
+        <ScrollView
+          contentContainerStyle={s.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Global Announcement */}
+          <View style={s.globalCard}>
+            <View style={s.globalHeader}>
+              <View style={s.iconCircle}>
+                <Ionicons name="megaphone" size={24} color="#f7971e" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.globalTitle}>Announce to All Buses</Text>
+                <Text style={s.globalDesc}>
+                  Set the same comment for every bus at once
                 </Text>
-              }
-              onRefresh={fetchDrivers}
-              refreshing={loadingDrivers}
-            />
-          )}
-        </>
-      )}
-
-      {/* ═══ Bus Add/Edit Modal ═══ */}
-      <Modal visible={busModalVisible} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitle}>
-              {editingBus ? "Edit Bus" : "Add Bus"}
-            </Text>
+              </View>
+            </View>
             <TextInput
-              style={s.input}
-              placeholder="Bus Number (e.g. Bus 11)"
-              value={busNumber}
-              onChangeText={setBusNumber}
+              style={s.globalInput}
+              placeholder="Type a comment for all buses..."
+              placeholderTextColor="#aaa"
+              value={globalComment}
+              onChangeText={setGlobalComment}
+              multiline
+              numberOfLines={2}
+              textAlignVertical="top"
+              editable={!savingGlobal}
             />
-            <TextInput
-              style={s.input}
-              placeholder="Route (e.g. Avadi - Porur)"
-              value={busRoute}
-              onChangeText={setBusRoute}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Location (lat,lng)"
-              value={busLocation}
-              onChangeText={setBusLocation}
-            />
-            <View style={s.modalActions}>
+            <View style={s.globalActions}>
               <TouchableOpacity
-                style={[s.modalBtn, s.cancelBtn]}
-                onPress={() => setBusModalVisible(false)}
+                style={s.clearAllBtn}
+                onPress={clearAllComments}
+                disabled={savingGlobal}
               >
-                <Text style={s.cancelBtnText}>Cancel</Text>
+                <Ionicons name="trash-outline" size={16} color="#d32f2f" />
+                <Text style={s.clearAllBtnText}>Clear All</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.modalBtn, s.saveBtn]}
-                onPress={saveBus}
+                style={[
+                  s.applyAllBtn,
+                  (!globalComment.trim() || savingGlobal) && s.btnDisabled,
+                ]}
+                onPress={saveGlobalComment}
+                disabled={!globalComment.trim() || savingGlobal}
               >
-                <Text style={s.saveBtnText}>
-                  {editingBus ? "Update" : "Add"}
-                </Text>
+                {savingGlobal ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="paper-plane" size={16} color="#fff" />
+                    <Text style={s.applyAllBtnText}>Apply to All</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
 
-      {/* ═══ Stop Add Modal ═══ */}
-      <Modal visible={stopModalVisible} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitle}>Add Stop</Text>
-            <TextInput
-              style={s.input}
-              placeholder="Stop Name"
-              value={stopName}
-              onChangeText={setStopName}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Latitude"
-              keyboardType="decimal-pad"
-              value={stopLat}
-              onChangeText={setStopLat}
-            />
-            <TextInput
-              style={s.input}
-              placeholder="Longitude"
-              keyboardType="decimal-pad"
-              value={stopLng}
-              onChangeText={setStopLng}
-            />
-            <View style={s.modalActions}>
-              <TouchableOpacity
-                style={[s.modalBtn, s.cancelBtn]}
-                onPress={() => setStopModalVisible(false)}
-              >
-                <Text style={s.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.modalBtn, s.saveBtn]}
-                onPress={saveStop}
-              >
-                <Text style={s.saveBtnText}>Add Stop</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+          {/* Individual Bus Cards */}
+          <Text style={s.sectionTitle}>
+            Individual Bus Comments ({buses.length})
+          </Text>
 
-      {/* ═══ Driver Add/Edit Modal ═══ */}
-      <Modal visible={driverModalVisible} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitle}>
-              {editingDriver ? "Edit Driver" : "Add Driver"}
-            </Text>
-            <TextInput
-              style={s.input}
-              placeholder="Phone Number"
-              keyboardType="phone-pad"
-              value={driverPhone}
-              onChangeText={setDriverPhone}
-            />
-            <Text style={s.inputLabel}>Assign to Bus:</Text>
-            <ScrollView
-              horizontal
-              style={s.busPicker}
-              showsHorizontalScrollIndicator={false}
-            >
-              {buses.map((b) => (
-                <TouchableOpacity
-                  key={b.id}
-                  style={[
-                    s.busPickerItem,
-                    driverBusId === String(b.id) && s.busPickerItemActive,
-                  ]}
-                  onPress={() => setDriverBusId(String(b.id))}
-                >
-                  <Text
+          {buses.map((bus) => {
+            const isSaving = savingBusId === bus.id;
+            const changed = hasCommentChanged(bus);
+            return (
+              <View key={bus.id} style={s.busCard}>
+                {/* Bus info */}
+                <View style={s.busInfoRow}>
+                  <View style={s.busIconWrap}>
+                    <Ionicons name="bus" size={22} color="#1976d2" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.busName}>{bus.number}</Text>
+                    <Text style={s.busRoute}>{bus.route}</Text>
+                  </View>
+                  {bus.comment ? (
+                    <View style={s.hasCommentBadge}>
+                      <Ionicons
+                        name="chatbubble"
+                        size={12}
+                        color="#f7971e"
+                      />
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Current comment preview */}
+                {bus.comment ? (
+                  <View style={s.currentComment}>
+                    <Text style={s.currentCommentLabel}>Current:</Text>
+                    <Text style={s.currentCommentText}>{bus.comment}</Text>
+                  </View>
+                ) : null}
+
+                {/* Comment input */}
+                <TextInput
+                  style={s.commentInput}
+                  placeholder={
+                    bus.comment
+                      ? "Edit comment..."
+                      : "Add a comment for this bus..."
+                  }
+                  placeholderTextColor="#bbb"
+                  value={busComments[bus.id] || ""}
+                  onChangeText={(t) =>
+                    setBusComments((prev) => ({ ...prev, [bus.id]: t }))
+                  }
+                  multiline
+                  numberOfLines={2}
+                  textAlignVertical="top"
+                  editable={!isSaving}
+                />
+
+                {/* Actions */}
+                <View style={s.busActions}>
+                  {bus.comment ? (
+                    <TouchableOpacity
+                      onPress={() => clearBusComment(bus)}
+                      disabled={isSaving}
+                      style={s.busClearBtn}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color="#d32f2f"
+                      />
+                    </TouchableOpacity>
+                  ) : (
+                    <View />
+                  )}
+                  <TouchableOpacity
                     style={[
-                      s.busPickerText,
-                      driverBusId === String(b.id) && s.busPickerTextActive,
+                      s.busSaveBtn,
+                      (!changed || isSaving) && s.btnDisabled,
                     ]}
+                    onPress={() => saveBusComment(bus)}
+                    disabled={!changed || isSaving}
                   >
-                    {b.number}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={s.activeToggle}
-              onPress={() => setDriverActive(!driverActive)}
-            >
-              <Ionicons
-                name={driverActive ? "checkmark-circle" : "close-circle"}
-                size={24}
-                color={driverActive ? "#388e3c" : "#d32f2f"}
-              />
-              <Text style={{ marginLeft: 8, fontSize: 16 }}>
-                {driverActive ? "Active" : "Inactive"}
-              </Text>
-            </TouchableOpacity>
-            <View style={s.modalActions}>
-              <TouchableOpacity
-                style={[s.modalBtn, s.cancelBtn]}
-                onPress={() => setDriverModalVisible(false)}
-              >
-                <Text style={s.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.modalBtn, s.saveBtn]}
-                onPress={saveDriver}
-              >
-                <Text style={s.saveBtnText}>
-                  {editingDriver ? "Update" : "Add"}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+                    {isSaving ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="checkmark"
+                          size={16}
+                          color="#fff"
+                        />
+                        <Text style={s.busSaveBtnText}>Save</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+
+          {buses.length === 0 && (
+            <Text style={s.emptyText}>No buses found</Text>
+          )}
+
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
 
-/* ═══════════════ Styles ═══════════════ */
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f7fa" },
   header: {
@@ -701,187 +365,191 @@ const s = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
   },
+  backBtn: { padding: 8 },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     color: "#1976d2",
     marginLeft: 12,
   },
-
-  /* Tabs */
-  tabs: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 8,
-    backgroundColor: "#e3eef9",
-    borderRadius: 12,
-    padding: 4,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  tabBtn: {
-    flex: 1,
+
+  /* Global Card */
+  globalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    borderLeftWidth: 4,
+    borderLeftColor: "#f7971e",
+  },
+  globalHeader: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "rgba(247,151,30,0.1)",
     justifyContent: "center",
-    paddingVertical: 10,
-    borderRadius: 10,
+    alignItems: "center",
   },
-  tabActive: { backgroundColor: "#1976d2" },
-  tabText: { fontSize: 15, fontWeight: "600", color: "#1976d2", marginLeft: 6 },
-  tabTextActive: { color: "#fff" },
-
-  /* FAB */
-  fab: {
+  globalTitle: { fontSize: 17, fontWeight: "bold", color: "#1a1a2e" },
+  globalDesc: { fontSize: 12, color: "#888", marginTop: 2 },
+  globalInput: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    backgroundColor: "#fafbfc",
+    minHeight: 50,
+    color: "#333",
+    marginBottom: 12,
+  },
+  globalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  clearAllBtn: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-end",
-    backgroundColor: "#1976d2",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: "#fce4ec",
+    gap: 5,
+  },
+  clearAllBtnText: { color: "#d32f2f", fontWeight: "600", fontSize: 13 },
+  applyAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 24,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    elevation: 4,
+    borderRadius: 10,
+    backgroundColor: "#f7971e",
+    gap: 6,
+    elevation: 2,
   },
-  fabText: { color: "#fff", fontWeight: "bold", fontSize: 15, marginLeft: 6 },
+  applyAllBtnText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
 
-  /* Cards */
-  card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
+  /* Section */
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#555",
     marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+
+  /* Bus Card */
+  busCard: {
+    backgroundColor: "#fff",
     borderRadius: 14,
     padding: 16,
+    marginBottom: 12,
     elevation: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
   },
-  cardHeader: { flexDirection: "row", alignItems: "flex-start" },
-  cardTitle: { fontSize: 18, fontWeight: "bold", color: "#1976d2" },
-  cardSub: { fontSize: 14, color: "#555", marginTop: 2 },
-  cardMeta: { fontSize: 12, color: "#999", marginTop: 4 },
-  cardActions: { flexDirection: "row", gap: 8 },
-  iconBtn: { padding: 6 },
-
-  /* Stops */
-  stopsSection: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  stopsHeader: {
+  busInfoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 10,
+    gap: 12,
   },
-  stopsTitle: { fontSize: 13, fontWeight: "bold", color: "#333" },
-  addStopBtn: { flexDirection: "row", alignItems: "center" },
-  addStopText: { fontSize: 13, color: "#388e3c", marginLeft: 4 },
-  stopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 4,
-  },
-  stopName: { fontSize: 14, color: "#333", flex: 1 },
-  stopCoords: { fontSize: 12, color: "#999" },
-
-  /* Driver badges on bus card */
-  driverBadges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  badge: {
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  busIconWrap: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    marginRight: 6,
-    marginBottom: 4,
+    backgroundColor: "#e3eef9",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  badgeInactive: { backgroundColor: "#fce4ec" },
-  badgeText: { fontSize: 12, color: "#1976d2" },
+  busName: { fontSize: 16, fontWeight: "bold", color: "#1976d2" },
+  busRoute: { fontSize: 12, color: "#888", marginTop: 1 },
+  hasCommentBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(247,151,30,0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
 
-  /* Driver card extras */
-  statusText: { fontSize: 14, fontWeight: "600", marginTop: 4 },
-  active: { color: "#388e3c" },
-  inactive: { color: "#d32f2f" },
+  /* Current comment */
+  currentComment: {
+    backgroundColor: "#fffbf0",
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: "#f7971e",
+  },
+  currentCommentLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#c47d0a",
+    textTransform: "uppercase",
+    marginBottom: 3,
+  },
+  currentCommentText: { fontSize: 13, color: "#444", lineHeight: 19 },
 
-  /* Empty */
+  /* Comment input */
+  commentInput: {
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 14,
+    backgroundColor: "#fafbfc",
+    minHeight: 44,
+    color: "#333",
+    marginBottom: 10,
+  },
+
+  /* Bus actions */
+  busActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  busClearBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#fce4ec",
+  },
+  busSaveBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#1976d2",
+    gap: 5,
+    elevation: 2,
+  },
+  busSaveBtnText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
+
+  btnDisabled: { backgroundColor: "#b0bec5", elevation: 0 },
   emptyText: {
     textAlign: "center",
     color: "#999",
-    marginTop: 40,
+    marginTop: 30,
     fontSize: 15,
-  },
-
-  /* Modal */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalCard: {
-    backgroundColor: "#fff",
-    width: "88%",
-    borderRadius: 16,
-    padding: 24,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#1976d2",
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    marginBottom: 12,
-    backgroundColor: "#f9fbfd",
-  },
-  inputLabel: { fontSize: 14, color: "#555", marginBottom: 6 },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    marginTop: 8,
-  },
-  modalBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
-  cancelBtn: { backgroundColor: "#eee" },
-  cancelBtnText: { color: "#555", fontWeight: "600" },
-  saveBtn: { backgroundColor: "#1976d2" },
-  saveBtnText: { color: "#fff", fontWeight: "bold" },
-
-  /* Bus picker for driver modal */
-  busPicker: { marginBottom: 12, maxHeight: 44 },
-  busPickerItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#e3eef9",
-    marginRight: 8,
-  },
-  busPickerItemActive: { backgroundColor: "#1976d2" },
-  busPickerText: { fontSize: 14, color: "#1976d2", fontWeight: "600" },
-  busPickerTextActive: { color: "#fff" },
-
-  /* Active toggle */
-  activeToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    paddingVertical: 6,
   },
 });
