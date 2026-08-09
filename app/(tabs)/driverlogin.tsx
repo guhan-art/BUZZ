@@ -1,30 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
-    AppState,
-    Keyboard,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  AppState,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
 import { driverToken, setDriverToken } from "../../constants/auth";
-import {
-    startBackgroundLocation,
-    stopBackgroundLocation,
-} from "../../utils/background-location";
+import { startBackgroundLocation, stopBackgroundLocation } from "../../utils/background-location";
 
-// -- Configuration --
-const LOCATION_DISTANCE_INTERVAL_M = 30; // Only fire after 30m movement
-const LOCATION_TIME_INTERVAL_MS = 10000; // But at least every 10 seconds
-const LOCATION_PUSH_THROTTLE_MS = 10000; // Don't POST more than once per 10s
+const LOCATION_DISTANCE_INTERVAL_M = 30;
+const LOCATION_TIME_INTERVAL_MS = 10000;
+const LOCATION_PUSH_THROTTLE_MS = 10000;
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
@@ -35,11 +32,7 @@ export default function DriverLoginScreen() {
   const [phone, setPhone] = useState("");
   const [busId, setBusId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [locationInfo, setLocationInfo] = useState<{
-    lat: number;
-    lng: number;
-    lastUpdate: string;
-  } | null>(null);
+  const [locationInfo, setLocationInfo] = useState<{ lat: number; lng: number; lastUpdate: string } | null>(null);
   const [status, setStatus] = useState("");
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
@@ -47,140 +40,93 @@ export default function DriverLoginScreen() {
   const lastPushRef = useRef<number>(0);
   const busIdRef = useRef<string | null>(null);
 
-  // Keep busIdRef in sync
   useEffect(() => {
     busIdRef.current = busId;
   }, [busId]);
 
-  // -- Location sending (throttled) --
-  const sendLocationUpdate = useCallback(
-    async (bId: string, loc: Location.LocationObject) => {
-      const now = Date.now();
-      if (now - lastPushRef.current < LOCATION_PUSH_THROTTLE_MS) return;
-      lastPushRef.current = now;
+  const sendLocationUpdate = useCallback(async (bId: string, loc: Location.LocationObject) => {
+    const now = Date.now();
+    if (now - lastPushRef.current < LOCATION_PUSH_THROTTLE_MS) return;
+    lastPushRef.current = now;
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/driver/location`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${driverToken}` },
-          body: JSON.stringify({
-            busId: bId,
-            latitude: loc.coords.latitude,
-            longitude: loc.coords.longitude,
-          }),
+    try {
+      const response = await fetch(`${API_BASE_URL}/driver/location`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${driverToken}` },
+        body: JSON.stringify({ busId: bId, latitude: loc.coords.latitude, longitude: loc.coords.longitude }),
+      });
+      if (response.ok) {
+        setLocationInfo({
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+          lastUpdate: new Date().toLocaleTimeString(),
         });
-        if (response.ok) {
-          setLocationInfo({
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-            lastUpdate: new Date().toLocaleTimeString(),
-          });
-          setStatus(`Sharing location for Bus ${bId}`);
-        }
-      } catch (e) {
-        console.error("Failed to send location", e);
-        setStatus("Failed to send location update");
+        setStatus(`Sharing location for Bus ${bId}`);
       }
-    },
-    [],
-  );
+    } catch (e) {
+      console.error("Failed to send location", e);
+      setStatus("Failed to send location update");
+    }
+  }, []);
 
-  // -- Start / Stop GPS watcher --
   const stopWatching = useCallback(() => {
     if (webWatchIdRef.current !== null) {
       try {
         if (typeof navigator !== "undefined" && navigator.geolocation) {
           navigator.geolocation.clearWatch(webWatchIdRef.current);
         }
-      } catch {
-        // Ignore geolocation clear failures on unsupported browsers.
-      } finally {
-        webWatchIdRef.current = null;
-      }
+      } catch {}
+      finally { webWatchIdRef.current = null; }
     }
-
     if (watchRef.current) {
-      try {
-        watchRef.current.remove();
-      } catch {
-        // Expo web can throw from remove(); do not crash logout/stop actions.
-      } finally {
-        watchRef.current = null;
-      }
+      try { watchRef.current.remove(); } catch {}
+      finally { watchRef.current = null; }
     }
   }, []);
 
-  const startWatching = useCallback(
-    async (bId: string) => {
-      stopWatching();
-
-      if (Platform.OS === "web") {
-        if (typeof navigator === "undefined" || !navigator.geolocation) {
-          setStatus("Geolocation is not supported in this browser");
-          return;
-        }
-
-        const watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            const loc = {
-              coords: {
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              },
-            } as Location.LocationObject;
-            sendLocationUpdate(bId, loc);
-          },
-          () => {
-            setStatus("Unable to read device location");
-          },
-          {
-            enableHighAccuracy: false,
-            timeout: LOCATION_TIME_INTERVAL_MS,
-            maximumAge: LOCATION_TIME_INTERVAL_MS,
-          },
-        );
-
-        webWatchIdRef.current = watchId;
+  const startWatching = useCallback(async (bId: string) => {
+    stopWatching();
+    if (Platform.OS === "web") {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        setStatus("Geolocation is not supported in this browser");
         return;
       }
-
-      const subscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Balanced,
-          distanceInterval: LOCATION_DISTANCE_INTERVAL_M,
-          timeInterval: LOCATION_TIME_INTERVAL_MS,
-        },
-        (loc) => {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const loc = { coords: { latitude: pos.coords.latitude, longitude: pos.coords.longitude } } as Location.LocationObject;
           sendLocationUpdate(bId, loc);
         },
+        () => setStatus("Unable to read device location"),
+        { enableHighAccuracy: false, timeout: LOCATION_TIME_INTERVAL_MS, maximumAge: LOCATION_TIME_INTERVAL_MS }
       );
-      watchRef.current = subscription;
-    },
-    [sendLocationUpdate, stopWatching],
-  );
+      webWatchIdRef.current = watchId;
+      return;
+    }
 
-  // Cleanup on unmount
+    const subscription = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, distanceInterval: LOCATION_DISTANCE_INTERVAL_M, timeInterval: LOCATION_TIME_INTERVAL_MS },
+      (loc) => sendLocationUpdate(bId, loc)
+    );
+    watchRef.current = subscription;
+  }, [sendLocationUpdate, stopWatching]);
+
   useEffect(() => {
     return () => stopWatching();
   }, [stopWatching]);
 
-  // -- AppState: pause/resume when app goes to background --
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextState) => {
       const currentBusId = busIdRef.current;
       if (!currentBusId) return;
-
       if (nextState === "active" && sharing) {
         startWatching(currentBusId);
       } else if (nextState !== "active") {
         stopWatching();
       }
     });
-
     return () => subscription.remove();
   }, [sharing, startWatching, stopWatching]);
 
-  // -- Login handler --
   const handleLogin = async () => {
     Keyboard.dismiss();
     const normalized = normalizePhone(phone);
@@ -208,30 +154,19 @@ export default function DriverLoginScreen() {
       setBusId(data.busId);
       setStatus(`Logged in — Bus ${data.busId}`);
 
-      // Request foreground permission and start watching
-      const { status: permStatus } =
-        await Location.requestForegroundPermissionsAsync();
+      const { status: permStatus } = await Location.requestForegroundPermissionsAsync();
       if (permStatus !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "Location permission is required to share your bus location.",
-        );
+        Alert.alert("Permission Denied", "Location permission is required to share your bus location.");
         setStatus("Location permission denied");
         return;
       }
 
       setSharing(true);
       try {
-        const initialLoc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        const initialLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         await sendLocationUpdate(data.busId, initialLoc);
-      } catch {
-        // If initial fetch fails, continuous watcher still starts below.
-      }
+      } catch {}
       startWatching(data.busId);
-
-      // Start background tracking (non-blocking — if permission denied, foreground still works)
       startBackgroundLocation(String(data.busId)).catch(() => {});
       setStatus(`Sharing location for Bus ${data.busId}`);
     } catch (e) {
@@ -241,7 +176,6 @@ export default function DriverLoginScreen() {
     }
   };
 
-  // -- Stop sharing --
   const handleStopSharing = () => {
     stopWatching();
     stopBackgroundLocation().catch(() => {});
@@ -250,7 +184,6 @@ export default function DriverLoginScreen() {
     setStatus("Location sharing stopped");
   };
 
-  // -- Logout --
   const handleLogout = () => {
     stopWatching();
     stopBackgroundLocation().catch(() => {});
@@ -262,127 +195,92 @@ export default function DriverLoginScreen() {
     router.replace("/(tabs)");
   };
 
-  // ── UI ──
-
   if (!busId) {
-    // Login form
     return (
-      <LinearGradient
-        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
-        style={st.container}
-      >
-        <View style={st.card}>
-          <Ionicons
-            name="person-circle"
-            size={64}
-            color="#2C77F4"
-            style={{ alignSelf: "center", marginBottom: 12 }}
-          />
-          <Text style={st.heading}>Driver Login</Text>
+      <LinearGradient colors={["#000000", "#050508", "#111116"]} style={st.container}>
+        {/* Glow Effects */}
+        <View style={[st.orb, st.orb1]} />
+        <View style={[st.orb, st.orb2]} />
+
+        <BlurView intensity={30} tint="dark" style={st.card}>
+          <View style={st.iconWrap}>
+            <Ionicons name="bus" size={40} color="#E99B16" />
+          </View>
+          <Text style={st.heading}>Driver Access</Text>
           <Text style={st.subheading}>Enter your registered phone number</Text>
 
-          <TextInput
-            style={st.input}
-            placeholder="Phone Number"
-            placeholderTextColor="#888"
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-            onSubmitEditing={handleLogin}
-            returnKeyType="go"
-          />
+          <View style={st.inputWrap}>
+            <Ionicons name="call" size={20} color="#8A8A93" style={st.inputIcon} />
+            <TextInput
+              style={st.input}
+              placeholder="Phone Number"
+              placeholderTextColor="#55555A"
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              onSubmitEditing={handleLogin}
+              returnKeyType="go"
+            />
+          </View>
 
-          <TouchableOpacity style={st.loginBtn} onPress={handleLogin}>
-            <LinearGradient
-              colors={["#2C77F4", "#55C8F6"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={st.loginBtnGrad}
-            >
-              <Text style={st.loginBtnText}>Login & Start Sharing</Text>
+          <TouchableOpacity onPress={handleLogin} style={st.loginBtnContainer}>
+            <LinearGradient colors={["#E99B16", "#FFC043"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={st.loginBtnGrad}>
+              <Text style={st.loginBtnText}>Authenticate</Text>
             </LinearGradient>
           </TouchableOpacity>
 
           {!!status && <Text style={st.statusText}>{status}</Text>}
-        </View>
+        </BlurView>
       </LinearGradient>
     );
   }
 
-  // Sharing dashboard
   return (
-    <LinearGradient
-      colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
-      style={st.container}
-    >
-      <View style={st.card}>
+    <LinearGradient colors={["#000000", "#050508", "#111116"]} style={st.container}>
+      <View style={[st.orb, st.orb1]} />
+      
+      <BlurView intensity={30} tint="dark" style={st.card}>
         <View style={st.dashHeader}>
-          <Ionicons name="bus" size={36} color="#2C77F4" />
+          <Ionicons name="bus-outline" size={36} color="#E99B16" />
           <Text style={st.dashTitle}>Bus {busId}</Text>
         </View>
 
-        {/* Status badge */}
         <View style={[st.statusBadge, sharing ? st.statusLive : st.statusOff]}>
-          <View
-            style={[
-              st.statusDot,
-              { backgroundColor: sharing ? "#2EBD88" : "#E2556A" },
-            ]}
-          />
-          <Text style={st.statusBadgeText}>
-            {sharing ? "LIVE — Sharing Location" : "Paused"}
+          <View style={[st.statusDot, { backgroundColor: sharing ? "#E99B16" : "#8A8A93" }]} />
+          <Text style={[st.statusBadgeText, { color: sharing ? "#E99B16" : "#8A8A93" }]}>
+            {sharing ? "LIVE — Transmitting" : "STANDBY"}
           </Text>
         </View>
 
-        {/* Location info */}
         {locationInfo && (
           <View style={st.coordsCard}>
-            <Text style={st.coordsLabel}>Last Known Position</Text>
-            <Text style={st.coordsValue}>
-              {locationInfo.lat.toFixed(6)}, {locationInfo.lng.toFixed(6)}
-            </Text>
-            <Text style={st.coordsTime}>
-              Updated: {locationInfo.lastUpdate}
-            </Text>
+            <Text style={st.coordsLabel}>Telemetry Data</Text>
+            <Text style={st.coordsValue}>{locationInfo.lat.toFixed(6)}, {locationInfo.lng.toFixed(6)}</Text>
+            <Text style={st.coordsTime}>Last sync: {locationInfo.lastUpdate}</Text>
           </View>
         )}
 
         {!!status && <Text style={st.statusText}>{status}</Text>}
 
-        {/* Action buttons */}
         <View style={st.btnRow}>
           {sharing ? (
-            <TouchableOpacity
-              style={[st.actionBtn, st.pauseBtn]}
-              onPress={handleStopSharing}
-            >
-              <Ionicons name="pause" size={20} color="#fff" />
-              <Text style={st.actionBtnText}>Pause</Text>
+            <TouchableOpacity style={[st.actionBtn, st.pauseBtn]} onPress={handleStopSharing}>
+              <Ionicons name="pause" size={20} color="#000" />
+              <Text style={st.actionBtnTextDark}>Halt</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={[st.actionBtn, st.resumeBtn]}
-              onPress={() => {
-                if (busId) {
-                  startWatching(busId);
-                  setSharing(true);
-                }
-              }}
-            >
-              <Ionicons name="play" size={20} color="#fff" />
-              <Text style={st.actionBtnText}>Resume</Text>
+            <TouchableOpacity style={[st.actionBtn, st.resumeBtn]} onPress={() => { if (busId) { startWatching(busId); setSharing(true); } }}>
+              <Ionicons name="play" size={20} color="#000" />
+              <Text style={st.actionBtnTextDark}>Transmit</Text>
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={[st.actionBtn, st.logoutBtn]}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={20} color="#fff" />
-            <Text style={st.actionBtnText}>Logout</Text>
+          <TouchableOpacity style={[st.actionBtn, st.logoutBtn]} onPress={handleLogout}>
+            <Ionicons name="exit-outline" size={20} color="#FF453A" />
+            <Text style={st.actionBtnTextLight}>Logout</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </BlurView>
     </LinearGradient>
   );
 }
@@ -393,149 +291,112 @@ const st = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 24,
   },
+  orb: {
+    position: "absolute",
+    borderRadius: 999,
+    opacity: 0.15,
+  },
+  orb1: {
+    width: 300, height: 300, backgroundColor: "#E99B16", top: -100, left: -100, filter: "blur(60px)",
+  },
+  orb2: {
+    width: 250, height: 250, backgroundColor: "#2C77F4", bottom: -50, right: -100, filter: "blur(60px)",
+  },
   card: {
-    backgroundColor: "rgba(255,255,255,0.74)",
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(192,211,242,0.72)",
-    shadowColor: "#9DB4DA",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 4,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(20,20,25,0.4)",
+    overflow: "hidden",
+  },
+  iconWrap: {
+    alignSelf: "center",
+    width: 72, height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(233,155,22,0.1)",
+    justifyContent: "center", alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1, borderColor: "rgba(233,155,22,0.3)"
   },
   heading: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "#162B57",
-    textAlign: "center",
-    marginBottom: 4,
+    fontFamily: "Outfit_700Bold", fontSize: 28, color: "#FFFFFF",
+    textAlign: "center", letterSpacing: 0.5,
   },
   subheading: {
-    fontSize: 13,
-    color: "rgba(48,71,113,0.72)",
-    textAlign: "center",
-    marginBottom: 24,
+    fontFamily: "Outfit_400Regular", fontSize: 14, color: "#8A8A93",
+    textAlign: "center", marginBottom: 32, marginTop: 4,
   },
+  inputWrap: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 16, marginBottom: 24,
+  },
+  inputIcon: { marginRight: 12 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.78)",
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
-    color: "#162B57",
-    borderWidth: 1,
-    borderColor: "rgba(189,209,242,0.7)",
-    marginBottom: 16,
+    flex: 1, fontFamily: "Outfit_400Regular", color: "#FFFFFF",
+    fontSize: 16, paddingVertical: 16,
   },
-  loginBtn: { borderRadius: 14, overflow: "hidden" },
+  loginBtnContainer: {
+    shadowColor: "#E99B16", shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
+  },
   loginBtnGrad: {
-    paddingVertical: 16,
-    alignItems: "center",
-    borderRadius: 14,
+    paddingVertical: 18, alignItems: "center", borderRadius: 16,
   },
   loginBtnText: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#fff",
+    fontFamily: "Outfit_700Bold", fontSize: 16, color: "#000000",
   },
   statusText: {
-    color: "rgba(48,71,113,0.72)",
-    fontSize: 13,
-    textAlign: "center",
-    marginTop: 16,
+    fontFamily: "Outfit_400Regular", color: "#E99B16",
+    fontSize: 13, textAlign: "center", marginTop: 20,
   },
 
-  // Dashboard
   dashHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
-    justifyContent: "center",
+    flexDirection: "row", alignItems: "center", gap: 12,
+    marginBottom: 24, justifyContent: "center",
   },
   dashTitle: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#162B57",
+    fontFamily: "Outfit_700Bold", fontSize: 32, color: "#FFFFFF",
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 20,
+    flexDirection: "row", alignItems: "center", alignSelf: "center",
+    paddingHorizontal: 20, paddingVertical: 10, borderRadius: 24,
+    marginBottom: 24,
   },
   statusLive: {
-    backgroundColor: "rgba(46,189,136,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(46,189,136,0.3)",
+    backgroundColor: "rgba(233,155,22,0.15)", borderWidth: 1, borderColor: "rgba(233,155,22,0.4)",
   },
   statusOff: {
-    backgroundColor: "rgba(226,85,106,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(226,85,106,0.3)",
+    backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
   },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
+  statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
   statusBadgeText: {
-    color: "#1E376E",
-    fontSize: 13,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontFamily: "Outfit_700Bold", fontSize: 13, letterSpacing: 1,
   },
   coordsCard: {
-    backgroundColor: "rgba(236,244,255,0.86)",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "rgba(192,211,242,0.72)",
+    backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 16, padding: 20,
+    marginBottom: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
   },
   coordsLabel: {
-    color: "rgba(48,71,113,0.72)",
-    fontSize: 11,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 6,
+    fontFamily: "Outfit_500Medium", color: "#8A8A93", fontSize: 11,
+    textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
   },
   coordsValue: {
-    color: "#162B57",
-    fontSize: 16,
-    fontWeight: "600",
-    fontVariant: ["tabular-nums"],
+    fontFamily: "Courier", color: "#FFFFFF", fontSize: 16, fontWeight: "600",
   },
   coordsTime: {
-    color: "rgba(48,71,113,0.66)",
-    fontSize: 12,
-    marginTop: 6,
+    fontFamily: "Outfit_400Regular", color: "#55555A", fontSize: 12, marginTop: 8,
   },
-  btnRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 8,
-  },
+  btnRow: { flexDirection: "row", gap: 12 },
   actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, paddingVertical: 16, borderRadius: 16,
   },
-  pauseBtn: { backgroundColor: "#E99B16" },
-  resumeBtn: { backgroundColor: "#2EBD88" },
-  logoutBtn: { backgroundColor: "#E2556A" },
-  actionBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-  },
+  pauseBtn: { backgroundColor: "#8A8A93" },
+  resumeBtn: { backgroundColor: "#E99B16" },
+  logoutBtn: { backgroundColor: "rgba(255,69,58,0.1)", borderWidth: 1, borderColor: "rgba(255,69,58,0.3)" },
+  actionBtnTextDark: { fontFamily: "Outfit_700Bold", color: "#000", fontSize: 15 },
+  actionBtnTextLight: { fontFamily: "Outfit_700Bold", color: "#FF453A", fontSize: 15 },
 });

@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { API_BASE_URL } from "../../constants/api";
 import { adminStyles as s } from "./styles";
@@ -47,14 +49,16 @@ export function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   };
 
   return (
-    <View style={s.passwordContainer}>
-      <View style={s.passwordCard}>
-        <Ionicons name="shield-checkmark" size={64} color="#1976d2" />
-        <Text style={s.passwordTitle}>Admin Panel</Text>
-        <Text style={s.passwordSubtitle}>Enter password to continue</Text>
+    <LinearGradient colors={["#000000", "#050508", "#111116"]} style={s.passwordContainer}>
+      <BlurView intensity={30} tint="dark" style={s.passwordCard}>
+        <Ionicons name="shield-checkmark" size={64} color="#E99B16" />
+        <Text style={s.passwordTitle}>Command Center</Text>
+        <Text style={s.passwordSubtitle}>Authorized personnel only</Text>
+        
         <TextInput
-          style={[s.input, error && { borderColor: "#d32f2f" }]}
-          placeholder="Password"
+          style={[s.input, { width: "100%" }, error && { borderColor: "rgba(255,69,58,0.5)" }]}
+          placeholder="Enter Passcode"
+          placeholderTextColor="#55555A"
           secureTextEntry
           value={password}
           onChangeText={(t) => {
@@ -65,16 +69,25 @@ export function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
           onSubmitEditing={handleSubmit}
           autoCapitalize="none"
         />
+        
         {error && <Text style={s.errorText}>{errorText}</Text>}
+        
         <TouchableOpacity
           style={[s.unlockBtn, loading && { opacity: 0.6 }]}
           onPress={handleSubmit}
           disabled={loading}
+          activeOpacity={0.8}
         >
-          <Ionicons name="lock-open" size={20} color="#fff" />
-          <Text style={s.unlockBtnText}>Unlock</Text>
+          {loading ? (
+            <ActivityIndicator color="#000" size="small" />
+          ) : (
+            <>
+              <Ionicons name="lock-open" size={20} color="#000" />
+              <Text style={s.unlockBtnText}>Access</Text>
+            </>
+          )}
         </TouchableOpacity>
-      </View>
-    </View>
+      </BlurView>
+    </LinearGradient>
   );
 }

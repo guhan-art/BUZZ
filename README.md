@@ -89,12 +89,9 @@ This uses EAS Build profile `apk` from `eas.json`.
 
 ## 🚀 Deployment
 
-We recommend the following stack for a free, always-on deployment:
-- **Frontend:** Vercel or Render Static Site
-- **Backend:** Render Web Service
-- **Database:** Aiven MySQL (Free Tier) or Railway MySQL
+We have created a comprehensive deployment guide to ensure perfect performance, fast loading times, and always-on WebSockets using Render and UptimeRobot.
 
-Make sure to set your `EXPO_PUBLIC_API_BASE_URL` during frontend build, and configure `JWT_SECRET`, `DATABASE_URL`, and `ADMIN_PASSWORD` in your production backend environment.
+👉 **See [DEPLOYMENT.md](DEPLOYMENT.md) for full instructions.**
 
 ---
 

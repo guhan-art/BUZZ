@@ -1,29 +1,51 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    AppState,
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  AppState,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import {
-    MapView,
-    Marker,
-    Polyline,
-    PROVIDER_GOOGLE,
+  MapView,
+  Marker,
+  Polyline,
+  PROVIDER_GOOGLE,
 } from "../components/map-view";
 import { API_BASE_URL } from "../constants/api";
 
 const TRAVELLER_FALLBACK_REFRESH_INTERVAL_MS = 60000;
+
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
+  { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
+  { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
+];
 
 interface Stop {
   id: number;
@@ -95,7 +117,6 @@ export default function TravellerBusScreen() {
     const wsBaseUrl = API_BASE_URL.startsWith("https://")
       ? API_BASE_URL.replace("https://", "wss://")
       : API_BASE_URL.replace("http://", "ws://");
-
     return `${wsBaseUrl}/ws?busId=${encodeURIComponent(busId)}`;
   }, [busId]);
 
@@ -116,7 +137,7 @@ export default function TravellerBusScreen() {
 
     socket.onopen = () => {
       reconnectAttemptRef.current = 0;
-      stopAutoRefresh(); // WS is live, no need to poll
+      stopAutoRefresh();
     };
 
     socket.onmessage = (event) => {
@@ -140,13 +161,12 @@ export default function TravellerBusScreen() {
 
     socket.onerror = (error) => {
       console.error("WebSocket error:", error);
-      startAutoRefresh(); // fallback to polling
+      startAutoRefresh();
     };
 
     socket.onclose = () => {
       wsRef.current = null;
-      startAutoRefresh(); // fallback to polling while reconnecting
-      // Auto-reconnect with exponential backoff
+      startAutoRefresh();
       const delay = Math.min(
         1000 * Math.pow(2, reconnectAttemptRef.current),
         MAX_RECONNECT_DELAY,
@@ -199,7 +219,6 @@ export default function TravellerBusScreen() {
     let mounted = true;
 
     const ensureLocationPermission = async () => {
-      // On web, browser permission prompts are handled by the map/geolocation APIs.
       if (Platform.OS === "web") {
         if (mounted) setShowUserLocation(true);
         return;
@@ -231,34 +250,26 @@ export default function TravellerBusScreen() {
 
   if (loading) {
     return (
-      <LinearGradient
-        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
-        style={st.loadingContainer}
-      >
-        <ActivityIndicator size="large" color="#2C77F4" />
-        <Text style={st.loadingText}>Loading your bus...</Text>
+      <LinearGradient colors={["#000000", "#050508", "#111116"]} style={st.loadingContainer}>
+        <ActivityIndicator size="large" color="#E99B16" />
+        <Text style={st.loadingText}>Initializing Telemetry...</Text>
       </LinearGradient>
     );
   }
 
   if (!bus) {
     return (
-      <LinearGradient
-        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
-        style={st.loadingContainer}
-      >
-        <Ionicons name="bus-outline" size={48} color="rgba(58,83,132,0.5)" />
-        <Text style={st.errorText}>Bus not found</Text>
+      <LinearGradient colors={["#000000", "#050508", "#111116"]} style={st.loadingContainer}>
+        <Ionicons name="bus-outline" size={48} color="rgba(255,255,255,0.5)" />
+        <Text style={st.errorText}>Vehicle Not Found</Text>
         <TouchableOpacity style={st.retryBtn} onPress={() => router.back()}>
-          <Text style={st.retryBtnText}>Go Back</Text>
+          <Text style={st.retryBtnText}>Return</Text>
         </TouchableOpacity>
       </LinearGradient>
     );
   }
 
-  // Parse bus location
-  const [lat, lng] =
-    bus.location?.split(",").map((v) => Number(String(v).trim())) ?? [];
+  const [lat, lng] = bus.location?.split(",").map((v) => Number(String(v).trim())) ?? [];
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
   const region = hasCoords
@@ -284,73 +295,51 @@ export default function TravellerBusScreen() {
       region={region}
       showsUserLocation={showUserLocation}
       showsMyLocationButton={showUserLocation}
+      customMapStyle={darkMapStyle}
     >
       {hasCoords && (
-        <Marker
-          coordinate={{ latitude: lat, longitude: lng }}
-          title={bus.name}
-          description="Current Location"
-          tracksViewChanges={false}
-        >
+        <Marker coordinate={{ latitude: lat, longitude: lng }} title={bus.name} description="Current Location" tracksViewChanges={false}>
           <View style={st.busMarker}>
-            <Ionicons name="bus" size={22} color="#fff" />
+            <View style={st.busMarkerPulse} />
+            <Ionicons name="bus" size={20} color="#000" />
           </View>
         </Marker>
       )}
 
       {stops.map((stop) => (
-        <Marker
-          key={stop.id}
-          coordinate={{ latitude: stop.lat, longitude: stop.lng }}
-          title={stop.name}
-          pinColor="#38ef7d"
-        />
+        <Marker key={stop.id} coordinate={{ latitude: stop.lat, longitude: stop.lng }} title={stop.name} />
       ))}
 
       {stops.length > 1 && (
-        <Polyline
-          coordinates={stops.map((s) => ({
-            latitude: s.lat,
-            longitude: s.lng,
-          }))}
-          strokeColor="#38ef7d"
-          strokeWidth={3}
-        />
+        <Polyline coordinates={stops.map((s) => ({ latitude: s.lat, longitude: s.lng }))} strokeColor="#E99B16" strokeWidth={4} />
       )}
     </MapView>
   );
 
   return (
     <View style={st.container}>
-      {/* Header */}
-      <LinearGradient colors={["#F7FAFF", "#EFF4FF"]} style={st.header}>
+      <LinearGradient colors={["#000000", "#050508"]} style={st.header}>
         <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#1B346A" />
+          <Ionicons name="chevron-back" size={24} color="#FFF" />
         </TouchableOpacity>
         <View style={st.headerContent}>
-          <Text style={st.headerTitle}>Your Bus</Text>
-          <Text style={st.headerSubtitle}>Welcome, {travellerName}</Text>
+          <Text style={st.headerTitle}>Vehicle Status</Text>
+          <Text style={st.headerSubtitle}>Identified as {travellerName}</Text>
         </View>
-        <TouchableOpacity
-          style={st.logoutBtn}
-          onPress={() => router.replace("/(tabs)")}
-        >
-          <Ionicons name="log-out-outline" size={22} color="#E2556A" />
+        <TouchableOpacity style={st.logoutBtn} onPress={() => router.replace("/(tabs)")}>
+          <Ionicons name="exit-outline" size={22} color="#FF453A" />
         </TouchableOpacity>
       </LinearGradient>
 
       <ScrollView
         style={st.scroll}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E99B16" />}
       >
-        {/* Bus Info Card */}
-        <View style={st.busCard}>
+        <BlurView intensity={30} tint="dark" style={st.busCard}>
           <View style={st.busCardHeader}>
             <View style={st.busIconWrap}>
-              <Ionicons name="bus" size={28} color="#2C77F4" />
+              <Ionicons name="bus" size={28} color="#E99B16" />
             </View>
             <View style={st.busCardInfo}>
               <Text style={st.busName}>{bus.name}</Text>
@@ -364,129 +353,83 @@ export default function TravellerBusScreen() {
 
           <View style={st.statsRow}>
             <View style={st.statItem}>
-              <Ionicons name="location" size={18} color="#ff9800" />
+              <Ionicons name="location" size={18} color="#8A8A93" />
               <Text style={st.statValue}>{stops.length}</Text>
-              <Text style={st.statLabel}>Stops</Text>
+              <Text style={st.statLabel}>WAYPOINTS</Text>
             </View>
             <View style={st.statDivider} />
             <View style={st.statItem}>
-              <Ionicons name="navigate" size={18} color="#4facfe" />
-              <Text style={st.statValue}>
-                {hasCoords ? "Active" : "Offline"}
-              </Text>
-              <Text style={st.statLabel}>Status</Text>
+              <Ionicons name="navigate" size={18} color="#8A8A93" />
+              <Text style={[st.statValue, { color: hasCoords ? "#E99B16" : "#FF453A" }]}>{hasCoords ? "ACTIVE" : "OFFLINE"}</Text>
+              <Text style={st.statLabel}>STATUS</Text>
             </View>
             <View style={st.statDivider} />
             <View style={st.statItem}>
-              <Ionicons name="refresh" size={18} color="#2EBD88" />
+              <Ionicons name="pulse" size={18} color="#8A8A93" />
               <Text style={st.statValue}>WS</Text>
-              <Text style={st.statLabel}>Realtime</Text>
+              <Text style={st.statLabel}>DATALINK</Text>
             </View>
           </View>
-        </View>
+        </BlurView>
 
-        {/* Map */}
         <View style={st.mapContainer}>
           <View style={st.mapHeader}>
-            <Text style={st.sectionTitle}>Live Location</Text>
-            <TouchableOpacity
-              style={st.trackButton}
-              onPress={() => setFullScreenMap(true)}
-            >
-              <Ionicons name="expand" size={18} color="#1B346A" />
-              <Text style={st.trackButtonText}>Full Map</Text>
+            <Text style={st.sectionTitle}>Telemetry Visual</Text>
+            <TouchableOpacity style={st.trackButton} onPress={() => setFullScreenMap(true)}>
+              <Ionicons name="expand" size={18} color="#000" />
+              <Text style={st.trackButtonText}>Expand</Text>
             </TouchableOpacity>
           </View>
           {!fullScreenMap && renderMap(st.map)}
         </View>
 
-        {/* Stops */}
         <View style={st.stopsContainer}>
-          <Text style={st.sectionTitle}>Route Stops</Text>
+          <Text style={st.sectionTitle}>Route Manifest</Text>
           {stops.length > 0 ? (
             stops.map((stop, index) => (
-              <View key={stop.id} style={st.stopCard}>
-                <View
-                  style={[
-                    st.stopNumber,
-                    index === 0 && { backgroundColor: "#38ef7d" },
-                    index === stops.length - 1 && {
-                      backgroundColor: "#ff5858",
-                    },
-                  ]}
-                >
-                  <Text style={st.stopNumberText}>{index + 1}</Text>
+              <BlurView intensity={20} tint="dark" key={stop.id} style={st.stopCard}>
+                <View style={[st.stopNumber, index === 0 && { backgroundColor: "#E99B16" }, index === stops.length - 1 && { backgroundColor: "#FF453A" }]}>
+                  <Text style={[st.stopNumberText, (index === 0 || index === stops.length - 1) ? { color: "#000" } : {}]}>{index + 1}</Text>
                 </View>
                 <View style={st.stopInfo}>
                   <Text style={st.stopName}>{stop.name}</Text>
-                  <Text style={st.stopCoords}>
-                    {stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}
-                  </Text>
+                  <Text style={st.stopCoords}>{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</Text>
                 </View>
-                {index === 0 && (
-                  <View style={st.stopBadge}>
-                    <Text style={st.stopBadgeText}>START</Text>
-                  </View>
-                )}
-                {index === stops.length - 1 && (
-                  <View
-                    style={[
-                      st.stopBadge,
-                      { backgroundColor: "rgba(255,88,88,0.15)" },
-                    ]}
-                  >
-                    <Text style={[st.stopBadgeText, { color: "#ff5858" }]}>
-                      END
-                    </Text>
-                  </View>
-                )}
-              </View>
+              </BlurView>
             ))
           ) : (
-            <Text style={st.noStopsText}>No stops available</Text>
+            <Text style={st.noStopsText}>No route data available</Text>
           )}
         </View>
 
-        {/* Traveller Info */}
-        <View style={st.travellerCard}>
-          <Ionicons name="person-circle-outline" size={24} color="#2C77F4" />
+        <BlurView intensity={20} tint="dark" style={st.travellerCard}>
+          <Ionicons name="finger-print-outline" size={28} color="#E99B16" />
           <View style={st.travellerInfo}>
             <Text style={st.travellerName}>{travellerName}</Text>
             <Text style={st.travellerEmail}>{travellerEmail}</Text>
           </View>
-        </View>
+        </BlurView>
 
-        <View style={{ height: 30 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Full Screen Map Modal */}
-      <Modal
-        visible={fullScreenMap}
-        animationType="slide"
-        onRequestClose={() => setFullScreenMap(false)}
-      >
+      <Modal visible={fullScreenMap} animationType="fade" onRequestClose={() => setFullScreenMap(false)}>
         <View style={st.fullScreenContainer}>
-          <LinearGradient
-            colors={["#F7FAFF", "#EFF4FF"]}
-            style={st.fullScreenHeader}
-          >
-            <TouchableOpacity
-              onPress={() => setFullScreenMap(false)}
-              style={st.closeButton}
-            >
-              <Ionicons name="close" size={28} color="#1B346A" />
+          <LinearGradient colors={["#000000", "#050508"]} style={st.fullScreenHeader}>
+            <TouchableOpacity onPress={() => setFullScreenMap(false)} style={st.closeButton}>
+              <Ionicons name="close" size={28} color="#FFF" />
             </TouchableOpacity>
-            <Text style={st.fullScreenTitle}>{bus.name} — Live Tracking</Text>
+            <Text style={st.fullScreenTitle}>{bus.name}</Text>
             <View style={{ width: 44 }} />
           </LinearGradient>
 
           {fullScreenMap && renderMap(st.fullScreenMap)}
 
           <View style={st.mapOverlay}>
-            <View style={st.statusBadge}>
+            <BlurView intensity={30} tint="dark" style={st.statusBadge}>
               <View style={st.liveDot} />
-              <Text style={st.statusText}>Live Tracking</Text>
-            </View>
+              <Text style={st.statusText}>LIVE TELEMETRY</Text>
+            </BlurView>
           </View>
         </View>
       </Modal>
@@ -495,334 +438,69 @@ export default function TravellerBusScreen() {
 }
 
 const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F7FAFF" },
+  container: { flex: 1, backgroundColor: "#000000" },
 
-  /* Loading / Error */
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 16,
-  },
-  loadingText: { color: "#4A6290", fontSize: 16 },
-  errorText: {
-    color: "#4A6290",
-    fontSize: 18,
-    marginTop: 12,
-  },
-  retryBtn: {
-    backgroundColor: "#2C77F4",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  retryBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", gap: 16 },
+  loadingText: { fontFamily: "Outfit_500Medium", color: "#8A8A93", fontSize: 16 },
+  errorText: { fontFamily: "Outfit_700Bold", color: "#FF453A", fontSize: 18, marginTop: 12 },
+  retryBtn: { backgroundColor: "rgba(255,255,255,0.1)", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  retryBtnText: { fontFamily: "Outfit_700Bold", color: "#fff", fontSize: 15 },
 
-  /* Header */
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 54,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.74)",
-    borderWidth: 1,
-    borderColor: "rgba(188,207,238,0.75)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#162B57",
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: "rgba(48,71,113,0.72)",
-    marginTop: 2,
-  },
-  logoutBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(226,85,106,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(226,85,106,0.24)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  header: { flexDirection: "row", alignItems: "center", paddingTop: 54, paddingBottom: 16, paddingHorizontal: 20 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", justifyContent: "center", alignItems: "center" },
+  headerContent: { flex: 1, marginLeft: 16 },
+  headerTitle: { fontFamily: "Outfit_700Bold", fontSize: 24, color: "#FFFFFF" },
+  headerSubtitle: { fontFamily: "Outfit_400Regular", fontSize: 13, color: "#8A8A93", marginTop: 2 },
+  logoutBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(255,69,58,0.1)", borderWidth: 1, borderColor: "rgba(255,69,58,0.3)", justifyContent: "center", alignItems: "center" },
 
-  /* Scroll */
   scroll: { flex: 1 },
 
-  /* Bus Card */
-  busCard: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    margin: 16,
-    borderRadius: 18,
-    padding: 18,
-    shadowColor: "#9DB4DA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "rgba(188,207,238,0.75)",
-  },
-  busCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  busIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 15,
-    backgroundColor: "rgba(225,237,255,0.86)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  busCardInfo: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  busName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#162B57",
-  },
-  busRoute: {
-    fontSize: 13,
-    color: "#4A6290",
-    marginTop: 2,
-  },
+  busCard: { margin: 20, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  busCardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  busIconWrap: { width: 56, height: 56, borderRadius: 16, backgroundColor: "rgba(233,155,22,0.1)", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(233,155,22,0.3)" },
+  busCardInfo: { flex: 1, marginLeft: 16 },
+  busName: { fontFamily: "Outfit_700Bold", fontSize: 22, color: "#FFFFFF" },
+  busRoute: { fontFamily: "Outfit_400Regular", fontSize: 14, color: "#8A8A93", marginTop: 4 },
+  liveChip: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(233,155,22,0.15)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: "rgba(233,155,22,0.4)" },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E99B16", marginRight: 6 },
+  liveText: { fontFamily: "Outfit_700Bold", color: "#E99B16", fontSize: 11, letterSpacing: 1 },
 
-  /* Live chip */
-  liveChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(46,189,136,0.12)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(46,189,136,0.3)",
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#2EBD88",
-    marginRight: 6,
-  },
-  liveText: {
-    color: "#2EBD88",
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
+  statsRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-around", backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 16, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
+  statItem: { alignItems: "center", gap: 6 },
+  statValue: { fontFamily: "Outfit_700Bold", fontSize: 16, color: "#FFFFFF" },
+  statLabel: { fontFamily: "Outfit_500Medium", fontSize: 10, color: "#8A8A93", letterSpacing: 1 },
+  statDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.1)" },
 
-  /* Stats */
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    backgroundColor: "rgba(236,244,255,0.86)",
-    borderRadius: 14,
-    padding: 14,
-  },
-  statItem: {
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#162B57",
-  },
-  statLabel: {
-    fontSize: 11,
-    color: "#4A6290",
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: "#d8e4f7",
-  },
+  mapContainer: { marginHorizontal: 20, marginBottom: 24 },
+  mapHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  sectionTitle: { fontFamily: "Outfit_700Bold", fontSize: 18, color: "#FFFFFF", letterSpacing: 0.5 },
+  trackButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#E99B16", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 16, gap: 6 },
+  trackButtonText: { fontFamily: "Outfit_700Bold", color: "#000", fontSize: 13 },
+  map: { height: 320, borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  
+  busMarker: { backgroundColor: "#E99B16", padding: 8, borderRadius: 20, borderWidth: 3, borderColor: "rgba(233,155,22,0.3)" },
+  busMarkerPulse: { position: "absolute", top: -4, left: -4, right: -4, bottom: -4, borderRadius: 24, borderWidth: 2, borderColor: "#E99B16", opacity: 0.5 },
 
-  /* Map */
-  mapContainer: { marginHorizontal: 16, marginBottom: 14 },
-  mapHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#162B57",
-  },
-  trackButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(224,236,255,0.9)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: "rgba(188,207,238,0.75)",
-  },
-  trackButtonText: {
-    color: "#1B346A",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  map: {
-    height: 280,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  busMarker: {
-    backgroundColor: "#2C77F4",
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: "#DDEBFF",
-  },
-
-  /* Stops */
-  stopsContainer: { marginHorizontal: 16, marginBottom: 16 },
-  stopCard: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 14,
-    marginTop: 10,
-    shadowColor: "#9DB4DA",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "rgba(188,207,238,0.75)",
-  },
-  stopNumber: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#2C77F4",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  stopNumberText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  stopsContainer: { marginHorizontal: 20, marginBottom: 24 },
+  stopCard: { flexDirection: "row", alignItems: "center", padding: 16, borderRadius: 16, marginTop: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  stopNumber: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.05)", justifyContent: "center", alignItems: "center", marginRight: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  stopNumberText: { fontFamily: "Outfit_700Bold", color: "#8A8A93", fontSize: 14 },
   stopInfo: { flex: 1 },
-  stopName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#162B57",
-    marginBottom: 2,
-  },
-  stopCoords: { fontSize: 11, color: "#4A6290" },
-  stopBadge: {
-    backgroundColor: "rgba(56,239,125,0.15)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  stopBadgeText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#2EBD88",
-    letterSpacing: 0.5,
-  },
-  noStopsText: {
-    fontSize: 14,
-    color: "#4A6290",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 14,
-  },
+  stopName: { fontFamily: "Outfit_700Bold", fontSize: 16, color: "#FFFFFF", marginBottom: 4 },
+  stopCoords: { fontFamily: "Outfit_400Regular", fontSize: 12, color: "#55555A" },
+  noStopsText: { fontFamily: "Outfit_400Regular", fontSize: 14, color: "#8A8A93", fontStyle: "italic", textAlign: "center", marginTop: 16 },
 
-  /* Traveller Info */
-  travellerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 14,
-    shadowColor: "#9DB4DA",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: "rgba(188,207,238,0.75)",
-  },
+  travellerCard: { flexDirection: "row", alignItems: "center", marginHorizontal: 20, padding: 20, borderRadius: 20, gap: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
   travellerInfo: { flex: 1 },
-  travellerName: { fontSize: 15, fontWeight: "600", color: "#162B57" },
-  travellerEmail: { fontSize: 12, color: "#4A6290", marginTop: 2 },
+  travellerName: { fontFamily: "Outfit_700Bold", fontSize: 16, color: "#FFFFFF" },
+  travellerEmail: { fontFamily: "Outfit_400Regular", fontSize: 13, color: "#8A8A93", marginTop: 4 },
 
-  /* Full Screen Map */
-  fullScreenContainer: { flex: 1, backgroundColor: "#F7FAFF" },
-  fullScreenHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 54,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-  },
-  closeButton: { padding: 8 },
-  fullScreenTitle: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "#162B57",
-    flex: 1,
-    textAlign: "center",
-  },
+  fullScreenContainer: { flex: 1, backgroundColor: "#000000" },
+  fullScreenHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 54, paddingBottom: 16, paddingHorizontal: 20 },
+  closeButton: { padding: 8, backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  fullScreenTitle: { fontFamily: "Outfit_700Bold", fontSize: 18, color: "#FFFFFF", flex: 1, textAlign: "center" },
   fullScreenMap: { flex: 1 },
-  mapOverlay: {
-    position: "absolute",
-    top: 116,
-    left: 16,
-    right: 16,
-    flexDirection: "row",
-    justifyContent: "center",
-    zIndex: 5,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(22,43,87,0.82)",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  statusText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  mapOverlay: { position: "absolute", top: 120, left: 20, right: 20, flexDirection: "row", justifyContent: "center", zIndex: 5 },
+  statusBadge: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12, borderRadius: 24, gap: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  statusText: { fontFamily: "Outfit_700Bold", color: "#E99B16", fontSize: 14, letterSpacing: 1 },
 });

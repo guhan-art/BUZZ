@@ -1,8 +1,10 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
-} from "@react-navigation/native";
+  useFonts,
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_700Bold,
+} from "@expo-google-fonts/outfit";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -10,14 +12,17 @@ import { Platform } from "react-native";
 import "react-native-reanimated";
 
 import { PwaInstallBanner } from "@/components/pwa-install-banner";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
   anchor: "(tabs)",
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_700Bold,
+  });
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof window === "undefined") {
@@ -35,21 +40,29 @@ export default function RootLayout() {
     }
   }, []);
 
+  if (!fontsLoaded) {
+    return null; // Or a splash screen
+  }
+
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DarkTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="adminpanel"
-          options={{ headerShown: false, title: "Admin Panel", href: null }}
+          options={{ headerShown: false, title: "Admin Panel" }}
         />
         <Stack.Screen
           name="travellerlogin"
-          options={{ headerShown: false, title: "Traveller Login", href: null }}
+          options={{ headerShown: false, title: "Traveller Login" }}
         />
         <Stack.Screen
           name="travellerbus"
-          options={{ headerShown: false, title: "Your Bus", href: null }}
+          options={{ headerShown: false, title: "Your Bus" }}
+        />
+        <Stack.Screen
+          name="busdetails"
+          options={{ headerShown: false, title: "Bus Details" }}
         />
         <Stack.Screen
           name="modal"
@@ -57,7 +70,7 @@ export default function RootLayout() {
         />
       </Stack>
       <PwaInstallBanner />
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </ThemeProvider>
   );
 }
