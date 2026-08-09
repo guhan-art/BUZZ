@@ -10,7 +10,7 @@ A real-time bus tracking app built for Universities. Students can view bus route
 - **Live Map** — See your location and buses on a Google Maps-powered map
 - **Bus Details** — Tap any bus to see full route details and stop coordinates
 - **Driver Login** — Drivers log in with their phone number and share live GPS every 5 seconds
-- **Admin Panel** — Password-protected panel (`MyBuzz88`) to:
+- **Admin Panel** — Secure, JWT-protected panel to:
   - Add, edit, delete buses and stops
   - Add, edit, delete drivers and toggle active status
   - Set announcements for all buses or individual buses
@@ -75,3 +75,29 @@ npm run android:apk
 ```
 
 This uses EAS Build profile `apk` from `eas.json`.
+
+---
+
+## 🔒 Security Architecture
+
+- **JWT Authentication:** Admin and Driver endpoints are secured using JSON Web Tokens.
+- **Role-based Access:** Drivers can only update locations for their assigned buses.
+- **Environment Variables:** All secrets (Database URL, JWT Secret, Admin Passwords) are stored securely in `.env` files (not committed to version control).
+- **Password Hashing:** Passwords are fully hashed using `bcrypt` before storage.
+
+---
+
+## 🚀 Deployment
+
+We recommend the following stack for a free, always-on deployment:
+- **Frontend:** Vercel or Render Static Site
+- **Backend:** Render Web Service
+- **Database:** Aiven MySQL (Free Tier) or Railway MySQL
+
+Make sure to set your `EXPO_PUBLIC_API_BASE_URL` during frontend build, and configure `JWT_SECRET`, `DATABASE_URL`, and `ADMIN_PASSWORD` in your production backend environment.
+
+---
+
+## 📄 License
+
+This project is proprietary. See the [LICENSE](license.md) file for details.
