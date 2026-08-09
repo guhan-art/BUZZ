@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     AppState,
     Modal,
+    Platform,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -50,6 +52,7 @@ export default function TravellerBusScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fullScreenMap, setFullScreenMap] = useState(false);
+  const [showUserLocation, setShowUserLocation] = useState(false);
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -192,6 +195,35 @@ export default function TravellerBusScreen() {
     stopAutoRefresh,
   ]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const ensureLocationPermission = async () => {
+      // On web, browser permission prompts are handled by the map/geolocation APIs.
+      if (Platform.OS === "web") {
+        if (mounted) setShowUserLocation(true);
+        return;
+      }
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (mounted) {
+          setShowUserLocation(status === "granted");
+        }
+      } catch {
+        if (mounted) {
+          setShowUserLocation(false);
+        }
+      }
+    };
+
+    ensureLocationPermission();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchBusDetails();
@@ -200,10 +232,10 @@ export default function TravellerBusScreen() {
   if (loading) {
     return (
       <LinearGradient
-        colors={["#0f0c29", "#302b63", "#24243e"]}
+        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
         style={st.loadingContainer}
       >
-        <ActivityIndicator size="large" color="#38ef7d" />
+        <ActivityIndicator size="large" color="#2C77F4" />
         <Text style={st.loadingText}>Loading your bus...</Text>
       </LinearGradient>
     );
@@ -212,10 +244,10 @@ export default function TravellerBusScreen() {
   if (!bus) {
     return (
       <LinearGradient
-        colors={["#0f0c29", "#302b63", "#24243e"]}
+        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
         style={st.loadingContainer}
       >
-        <Ionicons name="bus-outline" size={48} color="rgba(255,255,255,0.3)" />
+        <Ionicons name="bus-outline" size={48} color="rgba(58,83,132,0.5)" />
         <Text style={st.errorText}>Bus not found</Text>
         <TouchableOpacity style={st.retryBtn} onPress={() => router.back()}>
           <Text style={st.retryBtnText}>Go Back</Text>
@@ -246,7 +278,13 @@ export default function TravellerBusScreen() {
   const stops = Array.isArray(bus.stops) ? bus.stops : [];
 
   const renderMap = (style: any) => (
-    <MapView provider={PROVIDER_GOOGLE} style={style} region={region}>
+    <MapView
+      provider={PROVIDER_GOOGLE}
+      style={style}
+      region={region}
+      showsUserLocation={showUserLocation}
+      showsMyLocationButton={showUserLocation}
+    >
       {hasCoords && (
         <Marker
           coordinate={{ latitude: lat, longitude: lng }}
@@ -285,9 +323,9 @@ export default function TravellerBusScreen() {
   return (
     <View style={st.container}>
       {/* Header */}
-      <LinearGradient colors={["#0f0c29", "#302b63"]} style={st.header}>
+      <LinearGradient colors={["#F7FAFF", "#EFF4FF"]} style={st.header}>
         <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color="#1B346A" />
         </TouchableOpacity>
         <View style={st.headerContent}>
           <Text style={st.headerTitle}>Your Bus</Text>
@@ -297,7 +335,7 @@ export default function TravellerBusScreen() {
           style={st.logoutBtn}
           onPress={() => router.replace("/(tabs)")}
         >
-          <Ionicons name="log-out-outline" size={22} color="#ff5858" />
+          <Ionicons name="log-out-outline" size={22} color="#E2556A" />
         </TouchableOpacity>
       </LinearGradient>
 
@@ -312,7 +350,7 @@ export default function TravellerBusScreen() {
         <View style={st.busCard}>
           <View style={st.busCardHeader}>
             <View style={st.busIconWrap}>
-              <Ionicons name="bus" size={28} color="#38ef7d" />
+              <Ionicons name="bus" size={28} color="#2C77F4" />
             </View>
             <View style={st.busCardInfo}>
               <Text style={st.busName}>{bus.name}</Text>
@@ -340,7 +378,7 @@ export default function TravellerBusScreen() {
             </View>
             <View style={st.statDivider} />
             <View style={st.statItem}>
-              <Ionicons name="refresh" size={18} color="#38ef7d" />
+              <Ionicons name="refresh" size={18} color="#2EBD88" />
               <Text style={st.statValue}>WS</Text>
               <Text style={st.statLabel}>Realtime</Text>
             </View>
@@ -355,7 +393,7 @@ export default function TravellerBusScreen() {
               style={st.trackButton}
               onPress={() => setFullScreenMap(true)}
             >
-              <Ionicons name="expand" size={18} color="#fff" />
+              <Ionicons name="expand" size={18} color="#1B346A" />
               <Text style={st.trackButtonText}>Full Map</Text>
             </TouchableOpacity>
           </View>
@@ -411,7 +449,7 @@ export default function TravellerBusScreen() {
 
         {/* Traveller Info */}
         <View style={st.travellerCard}>
-          <Ionicons name="person-circle-outline" size={24} color="#4facfe" />
+          <Ionicons name="person-circle-outline" size={24} color="#2C77F4" />
           <View style={st.travellerInfo}>
             <Text style={st.travellerName}>{travellerName}</Text>
             <Text style={st.travellerEmail}>{travellerEmail}</Text>
@@ -429,14 +467,14 @@ export default function TravellerBusScreen() {
       >
         <View style={st.fullScreenContainer}>
           <LinearGradient
-            colors={["#0f0c29", "#302b63"]}
+            colors={["#F7FAFF", "#EFF4FF"]}
             style={st.fullScreenHeader}
           >
             <TouchableOpacity
               onPress={() => setFullScreenMap(false)}
               style={st.closeButton}
             >
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color="#1B346A" />
             </TouchableOpacity>
             <Text style={st.fullScreenTitle}>{bus.name} — Live Tracking</Text>
             <View style={{ width: 44 }} />
@@ -457,7 +495,7 @@ export default function TravellerBusScreen() {
 }
 
 const st = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f0f2f5" },
+  container: { flex: 1, backgroundColor: "#F7FAFF" },
 
   /* Loading / Error */
   loadingContainer: {
@@ -466,14 +504,14 @@ const st = StyleSheet.create({
     alignItems: "center",
     gap: 16,
   },
-  loadingText: { color: "rgba(255,255,255,0.6)", fontSize: 16 },
+  loadingText: { color: "#4A6290", fontSize: 16 },
   errorText: {
-    color: "rgba(255,255,255,0.5)",
+    color: "#4A6290",
     fontSize: 18,
     marginTop: 12,
   },
   retryBtn: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#2C77F4",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -493,7 +531,9 @@ const st = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.74)",
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -504,18 +544,20 @@ const st = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#fff",
+    color: "#162B57",
   },
   headerSubtitle: {
     fontSize: 13,
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(48,71,113,0.72)",
     marginTop: 2,
   },
   logoutBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,88,88,0.15)",
+    backgroundColor: "rgba(226,85,106,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(226,85,106,0.24)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -525,15 +567,17 @@ const st = StyleSheet.create({
 
   /* Bus Card */
   busCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     margin: 16,
     borderRadius: 18,
     padding: 18,
-    shadowColor: "#000",
+    shadowColor: "#9DB4DA",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   busCardHeader: {
     flexDirection: "row",
@@ -544,7 +588,7 @@ const st = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 15,
-    backgroundColor: "rgba(56,239,125,0.1)",
+    backgroundColor: "rgba(225,237,255,0.86)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -555,11 +599,11 @@ const st = StyleSheet.create({
   busName: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#1a1a2e",
+    color: "#162B57",
   },
   busRoute: {
     fontSize: 13,
-    color: "#888",
+    color: "#4A6290",
     marginTop: 2,
   },
 
@@ -567,22 +611,22 @@ const st = StyleSheet.create({
   liveChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(56,239,125,0.1)",
+    backgroundColor: "rgba(46,189,136,0.12)",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(56,239,125,0.25)",
+    borderColor: "rgba(46,189,136,0.3)",
   },
   liveDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#38ef7d",
+    backgroundColor: "#2EBD88",
     marginRight: 6,
   },
   liveText: {
-    color: "#38ef7d",
+    color: "#2EBD88",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 1,
@@ -593,7 +637,7 @@ const st = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: "#f8f9fb",
+    backgroundColor: "rgba(236,244,255,0.86)",
     borderRadius: 14,
     padding: 14,
   },
@@ -604,16 +648,16 @@ const st = StyleSheet.create({
   statValue: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#1a1a2e",
+    color: "#162B57",
   },
   statLabel: {
     fontSize: 11,
-    color: "#999",
+    color: "#4A6290",
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#d8e4f7",
   },
 
   /* Map */
@@ -627,19 +671,21 @@ const st = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1a1a2e",
+    color: "#162B57",
   },
   trackButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#302b63",
+    backgroundColor: "rgba(224,236,255,0.9)",
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   trackButtonText: {
-    color: "#fff",
+    color: "#1B346A",
     fontSize: 13,
     fontWeight: "600",
   },
@@ -649,33 +695,35 @@ const st = StyleSheet.create({
     overflow: "hidden",
   },
   busMarker: {
-    backgroundColor: "#302b63",
+    backgroundColor: "#2C77F4",
     padding: 8,
     borderRadius: 20,
     borderWidth: 3,
-    borderColor: "#38ef7d",
+    borderColor: "#DDEBFF",
   },
 
   /* Stops */
   stopsContainer: { marginHorizontal: 16, marginBottom: 16 },
   stopCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
     borderRadius: 14,
     marginTop: 10,
-    shadowColor: "#000",
+    shadowColor: "#9DB4DA",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   stopNumber: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#302b63",
+    backgroundColor: "#2C77F4",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -685,10 +733,10 @@ const st = StyleSheet.create({
   stopName: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#1a1a2e",
+    color: "#162B57",
     marginBottom: 2,
   },
-  stopCoords: { fontSize: 11, color: "#999" },
+  stopCoords: { fontSize: 11, color: "#4A6290" },
   stopBadge: {
     backgroundColor: "rgba(56,239,125,0.15)",
     paddingHorizontal: 8,
@@ -698,12 +746,12 @@ const st = StyleSheet.create({
   stopBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#38ef7d",
+    color: "#2EBD88",
     letterSpacing: 0.5,
   },
   noStopsText: {
     fontSize: 14,
-    color: "#999",
+    color: "#4A6290",
     fontStyle: "italic",
     textAlign: "center",
     marginTop: 14,
@@ -713,23 +761,25 @@ const st = StyleSheet.create({
   travellerCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     marginHorizontal: 16,
     padding: 16,
     borderRadius: 14,
-    shadowColor: "#000",
+    shadowColor: "#9DB4DA",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
     gap: 12,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   travellerInfo: { flex: 1 },
-  travellerName: { fontSize: 15, fontWeight: "600", color: "#1a1a2e" },
-  travellerEmail: { fontSize: 12, color: "#999", marginTop: 2 },
+  travellerName: { fontSize: 15, fontWeight: "600", color: "#162B57" },
+  travellerEmail: { fontSize: 12, color: "#4A6290", marginTop: 2 },
 
   /* Full Screen Map */
-  fullScreenContainer: { flex: 1, backgroundColor: "#000" },
+  fullScreenContainer: { flex: 1, backgroundColor: "#F7FAFF" },
   fullScreenHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -742,7 +792,7 @@ const st = StyleSheet.create({
   fullScreenTitle: {
     fontSize: 17,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#162B57",
     flex: 1,
     textAlign: "center",
   },
@@ -759,7 +809,7 @@ const st = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(48,43,99,0.9)",
+    backgroundColor: "rgba(22,43,87,0.82)",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,

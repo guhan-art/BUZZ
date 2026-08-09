@@ -1,3 +1,18 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+if (!process.env.DATABASE_URL) {
+  const user = process.env.DB_USER || "root";
+  const password = process.env.DB_PASSWORD || "";
+  const host = process.env.DB_HOST || "127.0.0.1";
+  const port = process.env.DB_PORT || "3306";
+  const dbName = process.env.DB_NAME || "bus_tracking";
+  process.env.DATABASE_URL = `mysql://${user}:${password}@${host}:${port}/${dbName}`;
+  console.warn(
+    "⚠ DATABASE_URL not set. Using DB_* fallback connection values.",
+  );
+}
+
 const express = require("express");
 const cors = require("cors");
 const { PrismaClient } = require("@prisma/client");
@@ -6,10 +21,14 @@ const rateLimit = require("express-rate-limit");
 const os = require("os");
 const http = require("http");
 const { WebSocketServer } = require("ws");
+const jwt = require("jsonwebtoken");
+const { requireAdmin, requireDriver, JWT_SECRET } = require("./middleware/auth");
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT) || 5000;
+const DEFAULT_ADMIN_PASSWORD = "MyBuzz88";
+const MIN_ADMIN_PASSWORD_LENGTH = 8;
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 const busSubscribers = new Map();
@@ -116,6 +135,49 @@ function formatLocation(latitude, longitude) {
   return `${latitude},${longitude}`;
 }
 
+function normalizePhone(phone) {
+  return String(phone || "").replace(/\D/g, "");
+}
+
+function isPhoneMatch(inputDigits, storedPhone) {
+  const storedDigits = normalizePhone(storedPhone);
+  if (!inputDigits || !storedDigits) return false;
+  if (inputDigits === storedDigits) return true;
+  // Accept country-code-prefixed variants (e.g., +91xxxxxxxxxx vs xxxxxxxxxx)
+  if (storedDigits.endsWith(inputDigits)) return true;
+  if (inputDigits.endsWith(storedDigits)) return true;
+  return false;
+}
+
+function getConfiguredAdminPassword() {
+  const envPassword = (process.env.ADMIN_PASSWORD || "").trim();
+  return envPassword || DEFAULT_ADMIN_PASSWORD;
+}
+
+async function getOrCreateAdminCredential() {
+  const existingCredential = await prisma.adminCredential.findUnique({
+    where: { id: 1 },
+  });
+
+  if (existingCredential) {
+    return existingCredential;
+  }
+
+  const fallbackPassword = getConfiguredAdminPassword();
+  const passwordHash = await bcrypt.hash(fallbackPassword, 10);
+  return prisma.adminCredential.create({
+    data: {
+      id: 1,
+      passwordHash,
+    },
+  });
+}
+
+async function isAdminPasswordValid(password) {
+  const credential = await getOrCreateAdminCredential();
+  return bcrypt.compare(String(password), credential.passwordHash);
+}
+
 app.get("/", (_req, res) => {
   res.json({
     message: "🚍 BUZZ Backend API",
@@ -133,16 +195,66 @@ app.get("/", (_req, res) => {
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-// POST /admin/login - Validates admin password server-side
-app.post("/admin/login", loginLimiter, (req, res) => {
-  const { password } = req.body;
-  if (!password) {
-    return res.status(400).json({ error: "password is required" });
+// POST /admin/login - Validates admin password against DB credential
+app.post("/admin/login", loginLimiter, async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: "password is required" });
+    }
+
+    const isValid = await isAdminPasswordValid(password);
+    if (!isValid) {
+      return res.status(401).json({ error: "Incorrect password" });
+    }
+
+    const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ ok: true, token });
+  } catch (err) {
+    console.error("❌ Admin login error:", err);
+    return res.status(500).json({ error: "server error" });
   }
-  if (password === process.env.ADMIN_PASSWORD) {
-    return res.json({ ok: true });
+});
+
+// POST /admin/change-password - Changes DB-backed admin password
+app.post("/admin/change-password", loginLimiter, requireAdmin, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "currentPassword and newPassword are required" });
+    }
+
+    const normalizedNewPassword = String(newPassword).trim();
+    if (normalizedNewPassword.length < MIN_ADMIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        error: `newPassword must be at least ${MIN_ADMIN_PASSWORD_LENGTH} characters`,
+      });
+    }
+
+    const isValidCurrentPassword = await isAdminPasswordValid(currentPassword);
+    if (!isValidCurrentPassword) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const passwordHash = await bcrypt.hash(normalizedNewPassword, 10);
+    await prisma.adminCredential.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        passwordHash,
+      },
+      update: {
+        passwordHash,
+      },
+    });
+
+    return res.json({ ok: true, message: "Admin password updated" });
+  } catch (err) {
+    console.error("❌ Admin password change error:", err);
+    return res.status(500).json({ error: "server error" });
   }
-  return res.status(401).json({ error: "Incorrect password" });
 });
 
 // GET /buses - Returns list of all buses with basic info
@@ -239,23 +351,31 @@ app.get("/buses/:id", async (req, res) => {
 app.post("/driver/login", loginLimiter, async (req, res) => {
   try {
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: "phone required" });
+    const submittedPhone = normalizePhone(phone);
+    if (!submittedPhone) {
+      return res.status(400).json({ error: "phone required" });
+    }
 
-    const driver = await prisma.driver.findFirst({
-      where: { phone, isActive: true },
-      select: { busId: true },
+    const activeDrivers = await prisma.driver.findMany({
+      where: { isActive: true },
+      select: { phone: true, busId: true },
     });
 
+    const driver = activeDrivers.find((d) =>
+      isPhoneMatch(submittedPhone, d.phone),
+    );
+
     if (!driver) {
-      console.log(`❌ Driver login failed for phone: ${phone}`);
+      console.log(`❌ Driver login failed for phone: ${submittedPhone}`);
       return res
         .status(401)
         .json({ error: "Phone number not found or driver is inactive" });
     }
 
     const busId = String(driver.busId);
-    console.log(`✅ Driver logged in: phone=${phone}, busId=${busId}`);
-    res.json({ ok: true, busId });
+    console.log(`✅ Driver logged in: phone=${submittedPhone}, busId=${busId}`);
+    const token = jwt.sign({ role: 'driver', busId: driver.busId, phone: submittedPhone }, JWT_SECRET, { expiresIn: '12h' });
+    res.json({ ok: true, busId, token });
   } catch (err) {
     console.error("❌ Driver login error:", err);
     res.status(500).json({ error: "server error" });
@@ -263,7 +383,7 @@ app.post("/driver/login", loginLimiter, async (req, res) => {
 });
 
 // POST /driver/location - Updates bus location in Prisma as "lat,lng" string
-app.post("/driver/location", async (req, res) => {
+app.post("/driver/location", requireDriver, async (req, res) => {
   try {
     const { busId, latitude, longitude } = req.body;
 
@@ -374,7 +494,7 @@ app.post("/traveller/login", loginLimiter, async (req, res) => {
 // ===================== ADMIN: Buses CRUD =====================
 
 // GET /admin/buses - List all buses with stops and drivers
-app.get("/admin/buses", async (_req, res) => {
+app.get("/admin/buses", requireAdmin, async (_req, res) => {
   try {
     const buses = await prisma.bus.findMany({
       include: { stops: true, drivers: true },
@@ -388,7 +508,7 @@ app.get("/admin/buses", async (_req, res) => {
 });
 
 // POST /admin/buses - Create a new bus with optional stops
-app.post("/admin/buses", async (req, res) => {
+app.post("/admin/buses", requireAdmin, async (req, res) => {
   try {
     const { number, route, location, stops } = req.body;
     if (!number || !route) {
@@ -412,7 +532,7 @@ app.post("/admin/buses", async (req, res) => {
 });
 
 // PUT /admin/buses/:id - Update a bus (number, route, location)
-app.put("/admin/buses/:id", async (req, res) => {
+app.put("/admin/buses/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { number, route, location, comment } = req.body;
@@ -437,7 +557,7 @@ app.put("/admin/buses/:id", async (req, res) => {
 });
 
 // DELETE /admin/buses/:id - Delete a bus (cascades stops & drivers)
-app.delete("/admin/buses/:id", async (req, res) => {
+app.delete("/admin/buses/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.bus.delete({ where: { id } });
@@ -454,7 +574,7 @@ app.delete("/admin/buses/:id", async (req, res) => {
 // ===================== ADMIN: Drivers CRUD =====================
 
 // GET /admin/drivers - List all drivers with their bus info
-app.get("/admin/drivers", async (_req, res) => {
+app.get("/admin/drivers", requireAdmin, async (_req, res) => {
   try {
     const drivers = await prisma.driver.findMany({
       include: { bus: { select: { id: true, number: true } } },
@@ -468,15 +588,21 @@ app.get("/admin/drivers", async (_req, res) => {
 });
 
 // POST /admin/drivers - Create a new driver
-app.post("/admin/drivers", async (req, res) => {
+app.post("/admin/drivers", requireAdmin, async (req, res) => {
   try {
     const { phone, busId, isActive } = req.body;
     if (!phone || !busId) {
       return res.status(400).json({ error: "phone and busId are required" });
     }
+
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({ error: "Invalid phone number" });
+    }
+
     const driver = await prisma.driver.create({
       data: {
-        phone,
+        phone: normalizedPhone,
         busId: Number(busId),
         isActive: isActive !== undefined ? isActive : true,
       },
@@ -495,14 +621,22 @@ app.post("/admin/drivers", async (req, res) => {
 });
 
 // PUT /admin/drivers/:id - Update a driver
-app.put("/admin/drivers/:id", async (req, res) => {
+app.put("/admin/drivers/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { phone, busId, isActive } = req.body;
+    let normalizedPhone;
+    if (phone !== undefined) {
+      normalizedPhone = normalizePhone(phone);
+      if (!normalizedPhone) {
+        return res.status(400).json({ error: "Invalid phone number" });
+      }
+    }
+
     const driver = await prisma.driver.update({
       where: { id },
       data: {
-        ...(phone !== undefined && { phone }),
+        ...(normalizedPhone !== undefined && { phone: normalizedPhone }),
         ...(busId !== undefined && { busId: Number(busId) }),
         ...(isActive !== undefined && { isActive }),
       },
@@ -521,7 +655,7 @@ app.put("/admin/drivers/:id", async (req, res) => {
 });
 
 // DELETE /admin/drivers/:id - Delete a driver
-app.delete("/admin/drivers/:id", async (req, res) => {
+app.delete("/admin/drivers/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.driver.delete({ where: { id } });
@@ -538,7 +672,7 @@ app.delete("/admin/drivers/:id", async (req, res) => {
 // ===================== ADMIN: Announcement =====================
 
 // PUT /admin/announcement - Set comment for all buses
-app.put("/admin/announcement", async (req, res) => {
+app.put("/admin/announcement", requireAdmin, async (req, res) => {
   try {
     const { comment } = req.body;
     if (comment === undefined) {
@@ -556,7 +690,7 @@ app.put("/admin/announcement", async (req, res) => {
 });
 
 // GET /admin/announcement - Get current announcement (from first bus)
-app.get("/admin/announcement", async (_req, res) => {
+app.get("/admin/announcement", requireAdmin, async (_req, res) => {
   try {
     const bus = await prisma.bus.findFirst({ select: { comment: true } });
     res.json({ comment: bus?.comment || "" });
@@ -569,7 +703,7 @@ app.get("/admin/announcement", async (_req, res) => {
 // ===================== ADMIN: Stops CRUD =====================
 
 // POST /admin/stops - Add a stop to a bus
-app.post("/admin/stops", async (req, res) => {
+app.post("/admin/stops", requireAdmin, async (req, res) => {
   try {
     const { name, lat, lng, busId } = req.body;
     if (!name || lat == null || lng == null || !busId) {
@@ -589,7 +723,7 @@ app.post("/admin/stops", async (req, res) => {
 });
 
 // DELETE /admin/stops/:id - Delete a stop
-app.delete("/admin/stops/:id", async (req, res) => {
+app.delete("/admin/stops/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.stop.delete({ where: { id } });
@@ -606,7 +740,7 @@ app.delete("/admin/stops/:id", async (req, res) => {
 // ===================== ADMIN: Travellers CRUD =====================
 
 // GET /admin/travellers - List all travellers with their bus info
-app.get("/admin/travellers", async (_req, res) => {
+app.get("/admin/travellers", requireAdmin, async (_req, res) => {
   try {
     const travellers = await prisma.traveller.findMany({
       include: { bus: { select: { id: true, number: true } } },
@@ -620,7 +754,7 @@ app.get("/admin/travellers", async (_req, res) => {
 });
 
 // POST /admin/travellers - Create a new traveller
-app.post("/admin/travellers", async (req, res) => {
+app.post("/admin/travellers", requireAdmin, async (req, res) => {
   try {
     const { email, password, name, busId } = req.body;
     if (!email || !password || !busId) {
@@ -628,10 +762,11 @@ app.post("/admin/travellers", async (req, res) => {
         .status(400)
         .json({ error: "email, password and busId are required" });
     }
+    const hashedPassword = await bcrypt.hash(String(password), 10);
     const traveller = await prisma.traveller.create({
       data: {
         email: email.toLowerCase().trim(),
-        password,
+        password: hashedPassword,
         name: name || "",
         busId: Number(busId),
       },
@@ -650,15 +785,19 @@ app.post("/admin/travellers", async (req, res) => {
 });
 
 // PUT /admin/travellers/:id - Update a traveller
-app.put("/admin/travellers/:id", async (req, res) => {
+app.put("/admin/travellers/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { email, password, name, busId } = req.body;
+    let hashedPassword;
+    if (password !== undefined) {
+      hashedPassword = await bcrypt.hash(String(password), 10);
+    }
     const traveller = await prisma.traveller.update({
       where: { id },
       data: {
         ...(email !== undefined && { email: email.toLowerCase().trim() }),
-        ...(password !== undefined && { password }),
+        ...(hashedPassword !== undefined && { password: hashedPassword }),
         ...(name !== undefined && { name }),
         ...(busId !== undefined && { busId: Number(busId) }),
       },
@@ -677,7 +816,7 @@ app.put("/admin/travellers/:id", async (req, res) => {
 });
 
 // DELETE /admin/travellers/:id - Delete a traveller
-app.delete("/admin/travellers/:id", async (req, res) => {
+app.delete("/admin/travellers/:id", requireAdmin, async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.traveller.delete({ where: { id } });
@@ -693,6 +832,11 @@ app.delete("/admin/travellers/:id", async (req, res) => {
 
 server.listen(PORT, "0.0.0.0", () => {
   const ip = getLanIPv4();
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn(
+      `⚠ ADMIN_PASSWORD not set. Falling back to default admin password (${DEFAULT_ADMIN_PASSWORD}).`,
+    );
+  }
   console.log(`✅ Server running on http://localhost:${PORT}`);
   console.log(`🔌 WebSocket endpoint: ws://localhost:${PORT}/ws?busId=<id>`);
   console.log(`📱 Access from phone: http://${ip}:${PORT}`);

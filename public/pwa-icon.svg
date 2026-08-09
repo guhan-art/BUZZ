@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BUZZ">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#g)" />
+  <rect x="96" y="140" width="320" height="200" rx="34" fill="#e2e8f0" />
+  <circle cx="170" cy="360" r="34" fill="#22c55e" />
+  <circle cx="342" cy="360" r="34" fill="#22c55e" />
+  <rect x="136" y="182" width="84" height="50" rx="10" fill="#0f172a" />
+  <rect x="240" y="182" width="136" height="50" rx="10" fill="#0f172a" />
+  <text x="256" y="430" text-anchor="middle" font-size="72" font-family="Verdana, sans-serif" font-weight="700" fill="#f8fafc">B</text>
+</svg>

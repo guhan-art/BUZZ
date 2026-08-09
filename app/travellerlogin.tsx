@@ -112,7 +112,7 @@ export default function TravellerLoginScreen() {
   };
 
   return (
-    <LinearGradient colors={["#0f0c29", "#302b63", "#24243e"]} style={st.bg}>
+    <LinearGradient colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]} style={st.bg}>
       {/* Decorative circles */}
       <View style={[st.circle, st.circle1]} />
       <View style={[st.circle, st.circle2]} />
@@ -127,13 +127,13 @@ export default function TravellerLoginScreen() {
         >
           {/* Back Button */}
           <TouchableOpacity style={st.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color="#1B346A" />
           </TouchableOpacity>
 
           {/* Header */}
           <View style={st.headerWrap}>
             <View style={st.iconCircle}>
-              <Ionicons name="school" size={44} color="#38ef7d" />
+              <Ionicons name="school" size={44} color="#2A70E7" />
             </View>
             <Text style={st.title}>Traveller Login</Text>
             <Text style={st.subtitle}>
@@ -152,13 +152,13 @@ export default function TravellerLoginScreen() {
                 <Ionicons
                   name="mail-outline"
                   size={20}
-                  color="rgba(255,255,255,0.5)"
+                  color="rgba(39,62,104,0.55)"
                   style={st.inputIcon}
                 />
                 <TextInput
                   style={st.input}
                   placeholder="yourname@srmist.edu.in"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor="rgba(58,84,132,0.45)"
                   value={email}
                   onChangeText={(t) => {
                     setEmail(t);
@@ -179,13 +179,13 @@ export default function TravellerLoginScreen() {
                 <Ionicons
                   name="lock-closed-outline"
                   size={20}
-                  color="rgba(255,255,255,0.5)"
+                  color="rgba(39,62,104,0.55)"
                   style={st.inputIcon}
                 />
                 <TextInput
                   style={[st.input, { flex: 1 }]}
                   placeholder="Enter your password"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholderTextColor="rgba(58,84,132,0.45)"
                   value={password}
                   onChangeText={(t) => {
                     setPassword(t);
@@ -202,7 +202,7 @@ export default function TravellerLoginScreen() {
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
-                    color="rgba(255,255,255,0.5)"
+                    color="rgba(39,62,104,0.55)"
                   />
                 </TouchableOpacity>
               </View>
@@ -223,7 +223,7 @@ export default function TravellerLoginScreen() {
               disabled={loading}
             >
               <LinearGradient
-                colors={["#11998e", "#38ef7d"]}
+                colors={["#2C77F4", "#55C8F6"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={st.loginBtn}
@@ -245,7 +245,7 @@ export default function TravellerLoginScreen() {
             <Ionicons
               name="information-circle-outline"
               size={16}
-              color="rgba(255,255,255,0.35)"
+              color="rgba(53,78,124,0.58)"
             />
             <Text style={st.infoText}>
               Use your registered SRMIST Gmail ID and password to view your
@@ -273,19 +273,19 @@ const st = StyleSheet.create({
   circle: {
     position: "absolute",
     borderRadius: 999,
-    opacity: 0.08,
+    opacity: 0.48,
   },
   circle1: {
     width: 260,
     height: 260,
-    backgroundColor: "#38ef7d",
+    backgroundColor: "#CFE2FF",
     top: -60,
     right: -80,
   },
   circle2: {
     width: 200,
     height: 200,
-    backgroundColor: "#11998e",
+    backgroundColor: "#D9F0FF",
     bottom: 60,
     left: -80,
   },
@@ -295,7 +295,9 @@ const st = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(190,210,245,0.72)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 24,
@@ -310,40 +312,45 @@ const st = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(56,239,125,0.12)",
+    backgroundColor: "rgba(217,233,255,0.85)",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: "rgba(56,239,125,0.25)",
+    borderColor: "rgba(163,191,238,0.7)",
   },
   title: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#fff",
+    color: "#162B57",
     letterSpacing: 1,
   },
   subtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(48,71,113,0.72)",
     marginTop: 6,
     textAlign: "center",
   },
 
   /* Form Card */
   formCard: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.72)",
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(192,211,242,0.72)",
+    shadowColor: "#9DB4DA",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
 
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    color: "rgba(255,255,255,0.7)",
+    color: "rgba(29,49,87,0.8)",
     fontSize: 13,
     fontWeight: "600",
     marginBottom: 8,
@@ -353,10 +360,10 @@ const st = StyleSheet.create({
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.78)",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(189,209,242,0.7)",
     paddingHorizontal: 14,
   },
   inputIcon: {
@@ -364,7 +371,7 @@ const st = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: "#fff",
+    color: "#162B57",
     fontSize: 16,
     paddingVertical: 14,
   },
@@ -417,7 +424,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 4,
   },
   infoText: {
-    color: "rgba(255,255,255,0.35)",
+    color: "rgba(53,78,124,0.68)",
     fontSize: 12,
     flex: 1,
     lineHeight: 18,

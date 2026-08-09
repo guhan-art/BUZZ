@@ -17,7 +17,7 @@ backend/node_modules/
 !.env.example
 backend/.env
 backend/.env.*
-!backend/.env.example
+!.backend/.env.example
 
 # ─── Expo ────────────────────────────────────────────────────
 .expo/
@@ -51,6 +51,7 @@ ios/*.xcodeproj/xcuserdata/
 
 # ─── Prisma ──────────────────────────────────────────────────
 backend/generated/
+backend/prisma/dev.db
 
 # ─── Build Outputs ───────────────────────────────────────────
 *.tsbuildinfo

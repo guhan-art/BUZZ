@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { API_BASE_URL } from "../../constants/api";
+import { adminToken } from "../../constants/auth";
 import { clearCachedUrl, fetchJsonWithCache } from "../../constants/api-cache";
 import { adminStyles as s } from "./styles";
 
@@ -40,7 +41,7 @@ export function AnnouncementSection() {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/announcement`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: announcementInput.trim() }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -59,7 +60,7 @@ export function AnnouncementSection() {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/announcement`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: "" }),
       });
       if (!res.ok) throw new Error("Failed");

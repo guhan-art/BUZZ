@@ -71,7 +71,7 @@ export default function BusListScreen() {
       onPress={() => handleBusPress(item)}
     >
       <LinearGradient
-        colors={["#ffffff", "#f5f5f5"]}
+        colors={["rgba(255,255,255,0.9)", "rgba(240,246,255,0.78)"]}
         style={styles.cardGradient}
       >
         <View style={styles.cardHeader}>
@@ -86,7 +86,7 @@ export default function BusListScreen() {
 
         <View style={styles.cardBody}>
           <View style={styles.routeContainer}>
-            <Ionicons name="navigate" size={18} color="#666" />
+            <Ionicons name="navigate" size={18} color="#4A6290" />
             <Text style={styles.routeText} numberOfLines={2}>
               {item.route}
             </Text>
@@ -126,7 +126,7 @@ export default function BusListScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196f3" />
+        <ActivityIndicator size="large" color="#2C77F4" />
         <Text style={styles.loadingText}>Loading buses...</Text>
       </View>
     );
@@ -134,13 +134,16 @@ export default function BusListScreen() {
 
   if (buses.length === 0) {
     return (
-      <LinearGradient colors={["#e3f2fd", "#ffffff"]} style={styles.container}>
+      <LinearGradient
+        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
+        style={styles.container}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => router.push("/(tabs)")}
             style={styles.backButton}
           >
-            <Ionicons name="arrow-back" size={24} color="#1976d2" />
+            <Ionicons name="arrow-back" size={24} color="#1B346A" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Available Buses</Text>
         </View>
@@ -156,13 +159,16 @@ export default function BusListScreen() {
   }
 
   return (
-    <LinearGradient colors={["#e3f2fd", "#ffffff"]} style={styles.container}>
+    <LinearGradient
+      colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
+      style={styles.container}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.push("/(tabs)")}
           style={styles.backButton}
         >
-          <Ionicons name="arrow-back" size={24} color="#1976d2" />
+          <Ionicons name="arrow-back" size={24} color="#1B346A" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Available Buses</Text>
@@ -174,7 +180,7 @@ export default function BusListScreen() {
           onPress={() => fetchBuses(true)}
           style={styles.refreshButton}
         >
-          <Ionicons name="refresh" size={24} color="#1976d2" />
+          <Ionicons name="refresh" size={24} color="#1B346A" />
         </TouchableOpacity>
       </View>
 
@@ -197,9 +203,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F7FAFF",
   },
-  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#4A6290" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -218,11 +224,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1976d2",
+    color: "#162B57",
   },
   headerSubtitle: {
     fontSize: 13,
-    color: "#666",
+    color: "#4A6290",
     marginTop: 2,
   },
   refreshButton: {
@@ -241,7 +247,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: "#2196f3",
+    backgroundColor: "#2C77F4",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -255,11 +261,13 @@ const styles = StyleSheet.create({
   card: {
     marginBottom: 15,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
+    shadowColor: "#9DB4DA",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 3,
   },
   cardGradient: { borderRadius: 16, padding: 16 },
   cardHeader: {
@@ -271,7 +279,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#e3f2fd",
+    backgroundColor: "rgba(225,237,255,0.86)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -282,11 +290,11 @@ const styles = StyleSheet.create({
   busNumber: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
+    color: "#162B57",
   },
   departureTime: {
     fontSize: 13,
-    color: "#666",
+    color: "#4A6290",
     marginTop: 2,
   },
   cardBody: { marginBottom: 12 },
@@ -297,7 +305,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     fontSize: 14,
-    color: "#444",
+    color: "#2A4374",
     marginLeft: 8,
     flex: 1,
     lineHeight: 20,
@@ -309,7 +317,7 @@ const styles = StyleSheet.create({
   },
   stopsText: {
     fontSize: 13,
-    color: "#666",
+    color: "#4A6290",
     marginLeft: 8,
   },
   locationContainer: {
@@ -325,7 +333,7 @@ const styles = StyleSheet.create({
   commentContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff3e0",
+    backgroundColor: "rgba(255,245,228,0.95)",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -344,11 +352,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: "#d8e4f7",
   },
   viewDetailsText: {
     fontSize: 14,
-    color: "#2196f3",
+    color: "#2C77F4",
     fontWeight: "500",
   },
 });

@@ -72,7 +72,7 @@ export default function BusDetailsScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196f3" />
+        <ActivityIndicator size="large" color="#2C77F4" />
         <Text style={styles.loadingText}>Loading bus details...</Text>
       </View>
     );
@@ -160,7 +160,7 @@ export default function BusDetailsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1976d2" />
+          <Ionicons name="arrow-back" size={24} color="#1B346A" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{bus.name}</Text>
       </View>
@@ -169,7 +169,7 @@ export default function BusDetailsScreen() {
         {/* Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Ionicons name="bus" size={24} color="#2196f3" />
+            <Ionicons name="bus" size={24} color="#2C77F4" />
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoLabel}>Bus Number</Text>
               <Text style={styles.infoValue}>{bus.name}</Text>
@@ -179,7 +179,7 @@ export default function BusDetailsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Ionicons name="navigate" size={24} color="#4caf50" />
+            <Ionicons name="navigate" size={24} color="#2EBD88" />
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoLabel}>Route</Text>
               <Text style={styles.infoValue}>{bus.route}</Text>
@@ -189,7 +189,7 @@ export default function BusDetailsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.infoRow}>
-            <Ionicons name="location" size={24} color="#ff9800" />
+            <Ionicons name="location" size={24} color="#E99B16" />
             <View style={styles.infoTextContainer}>
               <Text style={styles.infoLabel}>Total Stops</Text>
               <Text style={styles.infoValue}>{stops.length} stops</Text>
@@ -248,7 +248,7 @@ export default function BusDetailsScreen() {
               onPress={() => setFullScreenMap(false)}
               style={styles.closeButton}
             >
-              <Ionicons name="close" size={28} color="#fff" />
+              <Ionicons name="close" size={28} color="#1B346A" />
             </TouchableOpacity>
             <Text style={styles.fullScreenTitle}>
               {bus.name} - Live Tracking
@@ -273,17 +273,17 @@ export default function BusDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f9fc" },
+  container: { flex: 1, backgroundColor: "#F7FAFF" },
   centerContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F7FAFF",
   },
-  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#4A6290" },
   errorText: { fontSize: 18, color: "#f44336", marginBottom: 20 },
   backButton: {
-    backgroundColor: "#2196f3",
+    backgroundColor: "#2C77F4",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -297,23 +297,25 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   backBtn: { padding: 8, marginRight: 12 },
-  headerTitle: { fontSize: 22, fontWeight: "bold", color: "#1976d2" },
+  headerTitle: { fontSize: 22, fontWeight: "bold", color: "#162B57" },
   infoCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     margin: 15,
     padding: 16,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
+    shadowColor: "#9DB4DA",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
     elevation: 3,
   },
   infoRow: { flexDirection: "row", alignItems: "center", paddingVertical: 8 },
   infoTextContainer: { marginLeft: 12, flex: 1 },
-  infoLabel: { fontSize: 12, color: "#999", marginBottom: 4 },
-  infoValue: { fontSize: 16, color: "#333", fontWeight: "600" },
-  divider: { height: 1, backgroundColor: "#e0e0e0", marginVertical: 10 },
+  infoLabel: { fontSize: 12, color: "#4A6290", marginBottom: 4 },
+  infoValue: { fontSize: 16, color: "#162B57", fontWeight: "600" },
+  divider: { height: 1, backgroundColor: "#d8e4f7", marginVertical: 10 },
   mapContainer: { marginHorizontal: 15, marginBottom: 12 },
   mapHeader: {
     flexDirection: "row",
@@ -324,16 +326,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: "#162B57",
   },
   trackButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#2196f3",
+    backgroundColor: "#2C77F4",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    shadowColor: "#2196f3",
+    shadowColor: "#2C77F4",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
   },
   map: { height: 300, borderRadius: 16, overflow: "hidden" },
   busMarker: {
-    backgroundColor: "#2196f3",
+    backgroundColor: "#2C77F4",
     padding: 8,
     borderRadius: 20,
     borderWidth: 3,
@@ -355,15 +357,15 @@ const styles = StyleSheet.create({
   },
   stopsContainer: { marginHorizontal: 15, marginBottom: 24 },
   stopCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
     borderRadius: 12,
     marginBottom: 10,
-    shadowColor: "#000",
+    shadowColor: "#9DB4DA",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -371,15 +373,20 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#4caf50",
+    backgroundColor: "#2EBD88",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
   },
   stopNumberText: { color: "#fff", fontWeight: "bold", fontSize: 15 },
   stopInfo: { flex: 1 },
-  stopName: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 2 },
-  stopCoords: { fontSize: 12, color: "#999" },
+  stopName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#162B57",
+    marginBottom: 2,
+  },
+  stopCoords: { fontSize: 12, color: "#4A6290" },
   noStopsText: {
     fontSize: 14,
     color: "#999",
@@ -390,7 +397,7 @@ const styles = StyleSheet.create({
   // Full Screen Map Styles
   fullScreenContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#F7FAFF",
   },
   fullScreenHeader: {
     flexDirection: "row",
@@ -398,7 +405,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 16,
     paddingTop: 54,
-    backgroundColor: "#1976d2",
+    backgroundColor: "rgba(247,250,255,0.96)",
     zIndex: 10,
   },
   closeButton: {
@@ -407,7 +414,7 @@ const styles = StyleSheet.create({
   fullScreenTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#162B57",
     flex: 1,
     textAlign: "center",
   },
@@ -429,7 +436,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(33, 150, 243, 0.95)",
+    backgroundColor: "rgba(22,43,87,0.82)",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
@@ -443,7 +450,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#4caf50",
+    backgroundColor: "#2EBD88",
     marginRight: 8,
   },
   statusText: {

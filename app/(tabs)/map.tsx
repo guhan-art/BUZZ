@@ -49,7 +49,7 @@ export default function MapScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2196f3" />
+        <ActivityIndicator size="large" color="#2C77F4" />
         <Text style={styles.loadingText}>Getting your location...</Text>
       </View>
     );
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F7FAFF",
   },
-  loadingText: { marginTop: 10, fontSize: 16, color: "#666" },
+  loadingText: { marginTop: 10, fontSize: 16, color: "#4A6290" },
 });

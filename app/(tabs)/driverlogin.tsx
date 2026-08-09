@@ -7,6 +7,7 @@ import {
     Alert,
     AppState,
     Keyboard,
+    Platform,
     StyleSheet,
     Text,
     TextInput,
@@ -14,6 +15,7 @@ import {
     View,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/api";
+import { driverToken, setDriverToken } from "../../constants/auth";
 import {
     startBackgroundLocation,
     stopBackgroundLocation,
@@ -23,6 +25,10 @@ import {
 const LOCATION_DISTANCE_INTERVAL_M = 30; // Only fire after 30m movement
 const LOCATION_TIME_INTERVAL_MS = 10000; // But at least every 10 seconds
 const LOCATION_PUSH_THROTTLE_MS = 10000; // Don't POST more than once per 10s
+
+function normalizePhone(phone: string): string {
+  return phone.replace(/\D/g, "");
+}
 
 export default function DriverLoginScreen() {
   const router = useRouter();
@@ -37,6 +43,7 @@ export default function DriverLoginScreen() {
   const [status, setStatus] = useState("");
 
   const watchRef = useRef<Location.LocationSubscription | null>(null);
+  const webWatchIdRef = useRef<number | null>(null);
   const lastPushRef = useRef<number>(0);
   const busIdRef = useRef<string | null>(null);
 
@@ -55,7 +62,7 @@ export default function DriverLoginScreen() {
       try {
         const response = await fetch(`${API_BASE_URL}/driver/location`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${driverToken}` },
           body: JSON.stringify({
             busId: bId,
             latitude: loc.coords.latitude,
@@ -80,15 +87,62 @@ export default function DriverLoginScreen() {
 
   // -- Start / Stop GPS watcher --
   const stopWatching = useCallback(() => {
+    if (webWatchIdRef.current !== null) {
+      try {
+        if (typeof navigator !== "undefined" && navigator.geolocation) {
+          navigator.geolocation.clearWatch(webWatchIdRef.current);
+        }
+      } catch {
+        // Ignore geolocation clear failures on unsupported browsers.
+      } finally {
+        webWatchIdRef.current = null;
+      }
+    }
+
     if (watchRef.current) {
-      watchRef.current.remove();
-      watchRef.current = null;
+      try {
+        watchRef.current.remove();
+      } catch {
+        // Expo web can throw from remove(); do not crash logout/stop actions.
+      } finally {
+        watchRef.current = null;
+      }
     }
   }, []);
 
   const startWatching = useCallback(
     async (bId: string) => {
       stopWatching();
+
+      if (Platform.OS === "web") {
+        if (typeof navigator === "undefined" || !navigator.geolocation) {
+          setStatus("Geolocation is not supported in this browser");
+          return;
+        }
+
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const loc = {
+              coords: {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              },
+            } as Location.LocationObject;
+            sendLocationUpdate(bId, loc);
+          },
+          () => {
+            setStatus("Unable to read device location");
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: LOCATION_TIME_INTERVAL_MS,
+            maximumAge: LOCATION_TIME_INTERVAL_MS,
+          },
+        );
+
+        webWatchIdRef.current = watchId;
+        return;
+      }
 
       const subscription = await Location.watchPositionAsync(
         {
@@ -129,8 +183,8 @@ export default function DriverLoginScreen() {
   // -- Login handler --
   const handleLogin = async () => {
     Keyboard.dismiss();
-    const trimmed = phone.trim();
-    if (!trimmed) {
+    const normalized = normalizePhone(phone);
+    if (!normalized) {
       Alert.alert("Error", "Please enter your phone number");
       return;
     }
@@ -139,8 +193,8 @@ export default function DriverLoginScreen() {
       setStatus("Logging in...");
       const response = await fetch(`${API_BASE_URL}/driver/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: trimmed }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${driverToken}` },
+        body: JSON.stringify({ phone: normalized }),
       });
 
       const data = await response.json();
@@ -150,6 +204,7 @@ export default function DriverLoginScreen() {
         return;
       }
 
+      setDriverToken(data.token);
       setBusId(data.busId);
       setStatus(`Logged in — Bus ${data.busId}`);
 
@@ -166,6 +221,14 @@ export default function DriverLoginScreen() {
       }
 
       setSharing(true);
+      try {
+        const initialLoc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        await sendLocationUpdate(data.busId, initialLoc);
+      } catch {
+        // If initial fetch fails, continuous watcher still starts below.
+      }
       startWatching(data.busId);
 
       // Start background tracking (non-blocking — if permission denied, foreground still works)
@@ -205,14 +268,14 @@ export default function DriverLoginScreen() {
     // Login form
     return (
       <LinearGradient
-        colors={["#0f0c29", "#302b63", "#24243e"]}
+        colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
         style={st.container}
       >
         <View style={st.card}>
           <Ionicons
             name="person-circle"
             size={64}
-            color="#f857a6"
+            color="#2C77F4"
             style={{ alignSelf: "center", marginBottom: 12 }}
           />
           <Text style={st.heading}>Driver Login</Text>
@@ -231,7 +294,7 @@ export default function DriverLoginScreen() {
 
           <TouchableOpacity style={st.loginBtn} onPress={handleLogin}>
             <LinearGradient
-              colors={["#f857a6", "#ff5858"]}
+              colors={["#2C77F4", "#55C8F6"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={st.loginBtnGrad}
@@ -249,12 +312,12 @@ export default function DriverLoginScreen() {
   // Sharing dashboard
   return (
     <LinearGradient
-      colors={["#0f0c29", "#302b63", "#24243e"]}
+      colors={["#F7FAFF", "#EFF4FF", "#F4F8FF"]}
       style={st.container}
     >
       <View style={st.card}>
         <View style={st.dashHeader}>
-          <Ionicons name="bus" size={36} color="#38ef7d" />
+          <Ionicons name="bus" size={36} color="#2C77F4" />
           <Text style={st.dashTitle}>Bus {busId}</Text>
         </View>
 
@@ -263,7 +326,7 @@ export default function DriverLoginScreen() {
           <View
             style={[
               st.statusDot,
-              { backgroundColor: sharing ? "#38ef7d" : "#ff5858" },
+              { backgroundColor: sharing ? "#2EBD88" : "#E2556A" },
             ]}
           />
           <Text style={st.statusBadgeText}>
@@ -331,33 +394,38 @@ const st = StyleSheet.create({
     paddingHorizontal: 24,
   },
   card: {
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(255,255,255,0.74)",
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(192,211,242,0.72)",
+    shadowColor: "#9DB4DA",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 4,
   },
   heading: {
     fontSize: 26,
     fontWeight: "900",
-    color: "#fff",
+    color: "#162B57",
     textAlign: "center",
     marginBottom: 4,
   },
   subheading: {
     fontSize: 13,
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(48,71,113,0.72)",
     textAlign: "center",
     marginBottom: 24,
   },
   input: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.78)",
     borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: "#fff",
+    color: "#162B57",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(189,209,242,0.7)",
     marginBottom: 16,
   },
   loginBtn: { borderRadius: 14, overflow: "hidden" },
@@ -372,7 +440,7 @@ const st = StyleSheet.create({
     color: "#fff",
   },
   statusText: {
-    color: "rgba(255,255,255,0.5)",
+    color: "rgba(48,71,113,0.72)",
     fontSize: 13,
     textAlign: "center",
     marginTop: 16,
@@ -389,7 +457,7 @@ const st = StyleSheet.create({
   dashTitle: {
     fontSize: 28,
     fontWeight: "900",
-    color: "#fff",
+    color: "#162B57",
   },
   statusBadge: {
     flexDirection: "row",
@@ -401,14 +469,14 @@ const st = StyleSheet.create({
     marginBottom: 20,
   },
   statusLive: {
-    backgroundColor: "rgba(56,239,125,0.15)",
+    backgroundColor: "rgba(46,189,136,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(56,239,125,0.3)",
+    borderColor: "rgba(46,189,136,0.3)",
   },
   statusOff: {
-    backgroundColor: "rgba(255,88,88,0.15)",
+    backgroundColor: "rgba(226,85,106,0.12)",
     borderWidth: 1,
-    borderColor: "rgba(255,88,88,0.3)",
+    borderColor: "rgba(226,85,106,0.3)",
   },
   statusDot: {
     width: 10,
@@ -417,32 +485,34 @@ const st = StyleSheet.create({
     marginRight: 8,
   },
   statusBadgeText: {
-    color: "#fff",
+    color: "#1E376E",
     fontSize: 13,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
   coordsCard: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(236,244,255,0.86)",
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(192,211,242,0.72)",
   },
   coordsLabel: {
-    color: "rgba(255,255,255,0.4)",
+    color: "rgba(48,71,113,0.72)",
     fontSize: 11,
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 6,
   },
   coordsValue: {
-    color: "#fff",
+    color: "#162B57",
     fontSize: 16,
     fontWeight: "600",
     fontVariant: ["tabular-nums"],
   },
   coordsTime: {
-    color: "rgba(255,255,255,0.35)",
+    color: "rgba(48,71,113,0.66)",
     fontSize: 12,
     marginTop: 6,
   },
@@ -460,9 +530,9 @@ const st = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
   },
-  pauseBtn: { backgroundColor: "rgba(255,152,0,0.8)" },
-  resumeBtn: { backgroundColor: "rgba(56,239,125,0.7)" },
-  logoutBtn: { backgroundColor: "rgba(255,88,88,0.7)" },
+  pauseBtn: { backgroundColor: "#E99B16" },
+  resumeBtn: { backgroundColor: "#2EBD88" },
+  logoutBtn: { backgroundColor: "#E2556A" },
   actionBtnText: {
     color: "#fff",
     fontSize: 15,

@@ -24,11 +24,54 @@ param(
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
+function Get-BestLocalIPv4 {
+    try {
+        $all = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.IPAddress -and
+                $_.IPAddress -notmatch '^(127\.|169\.254\.)'
+            }
+
+        if (-not $all) { return $null }
+
+        $preferred = $all | Where-Object {
+            $_.IPAddress -match '^192\.168\.' -or
+            $_.IPAddress -match '^10\.' -or
+            $_.IPAddress -match '^172\.(1[6-9]|2[0-9]|3[0-1])\.'
+        } | Select-Object -First 1
+
+        if ($preferred) { return $preferred.IPAddress }
+
+        return ($all | Select-Object -First 1).IPAddress
+    } catch {
+        return $null
+    }
+}
+
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "   BUZZ App  -  Clean Start Script"      -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
+
+# -- Preflight: backend .env --
+$backendEnvPath = "$root\backend\.env"
+$backendEnvExamplePath = "$root\backend\.env.example"
+if (-not (Test-Path $backendEnvPath)) {
+    @(
+        'DATABASE_URL="mysql://root:@127.0.0.1:3306/bus_tracking"'
+        'DB_USER="root"'
+        'DB_PASSWORD=""'
+        'DB_HOST="127.0.0.1"'
+        'DB_PORT="3306"'
+        'DB_NAME="bus_tracking"'
+        'PORT=5000'
+        'ADMIN_PASSWORD="MyBuzz88"'
+    ) | Set-Content -Path $backendEnvPath -Encoding UTF8
+
+    Write-Host "[Preflight] Created backend/.env with local defaults" -ForegroundColor DarkYellow
+    Write-Host "           If your MySQL has a password, update backend/.env before login tests" -ForegroundColor DarkYellow
+}
 
 # -- 0. Ensure MySQL is running --
 Write-Host "[0/7] Checking MySQL service..." -ForegroundColor Yellow
@@ -127,17 +170,35 @@ Write-Host "  -> Prisma client generated" -ForegroundColor Green
 Write-Host ""
 Write-Host "[6/7] Starting backend & frontend..." -ForegroundColor Yellow
 
+$bestIp = Get-BestLocalIPv4
+if ($bestIp) {
+    $env:EXPO_PUBLIC_API_BASE_URL = "http://$bestIp`:$BackendPort"
+    Write-Host "  -> API base URL set to $($env:EXPO_PUBLIC_API_BASE_URL)" -ForegroundColor Green
+} else {
+    if ($Web) {
+        $env:EXPO_PUBLIC_API_BASE_URL = "http://localhost:$BackendPort"
+    } else {
+        $env:EXPO_PUBLIC_API_BASE_URL = "http://10.0.2.2:$BackendPort"
+    }
+    Write-Host "  -> API base URL fallback set to $($env:EXPO_PUBLIC_API_BASE_URL)" -ForegroundColor DarkYellow
+}
+
 $backendJob = Start-Job -Name "BuzzBackend" -ScriptBlock {
-    param($dir)
+    param($dir, $port)
     Set-Location $dir
-    $env:PORT = $using:BackendPort
+    $env:PORT = $port
     npx nodemon server.js 2>&1
-} -ArgumentList "$root\backend"
+} -ArgumentList "$root\backend", $BackendPort
 
 Write-Host "  -> Backend starting on port $BackendPort (Job Id: $($backendJob.Id))" -ForegroundColor Green
 
 # Give the backend a moment to boot
 Start-Sleep -Seconds 2
+
+if ($backendJob.State -eq "Failed") {
+    Write-Host "  -> Backend job failed to start. Showing logs:" -ForegroundColor Red
+    Receive-Job -Id $backendJob.Id -Keep
+}
 
 # Quick health-check
 try {

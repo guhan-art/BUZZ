@@ -1,8 +1,11 @@
 // Uses your exact data values; only structure is adjusted to match schema.
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
+const DEFAULT_ADMIN_PASSWORD = "MyBuzz88";
 
 const busData = [
   {
@@ -29,10 +32,10 @@ const busData = [
   },
   {
     number: "Bus 33B",
-    route: "Porur Roundana - Ramapuram (MIOT)",
+    route: "Porur Sakthi Nagar - Ramapuram (MIOT)",
     location: "13.0349,80.1762",
     stops: [
-      { name: "Porur", lat: 13.0349, lng: 80.1762 },
+      { name: "Porur Sakthi Nagar", lat: 13.0349, lng: 80.1762 },
       { name: "Ramapuram", lat: 13.0338, lng: 80.1831 },
       { name: "MIOT Hospital", lat: 13.0293, lng: 80.1883 },
     ],
@@ -61,30 +64,30 @@ const busData = [
 
 // Driver data: phone -> bus number mapping (use placeholder numbers)
 const driverData = [
-  { phone: "0000000001", busNumber: "Bus 11" },
-  { phone: "0000000002", busNumber: "Bus 33" },
-  { phone: "0000000003", busNumber: "Bus 33B" },
+  { phone: "9994875901", busNumber: "Bus 11" },
+  { phone: "9840948132", busNumber: "Bus 33B" },
+  { phone: "7358536800", busNumber: "Bus 33" },
 ];
 
 // Traveller data: SRMIST Gmail ID, password, name, bus number
 const travellerData = [
   {
-    email: "gs1234@srmist.edu.in",
-    password: "srm@1234",
-    name: "Guhan Raj S",
-    busNumber: "Bus 11",
+    email: "gs0172@srmist.edu.in",
+    password: "srm@1",
+    name: "Guhan Raj",
+    busNumber: "Bus 33B",
   },
   {
-    email: "ak5678@srmist.edu.in",
-    password: "srm@5678",
-    name: "Arun Kumar",
+    email: "av7583@srmist.edu.in",
+    password: "srm@2",
+    name: "Adithya Vel",
     busNumber: "Bus 33",
   },
   {
-    email: "ps9012@srmist.edu.in",
-    password: "srm@9012",
-    name: "Priya Sharma",
-    busNumber: "Bus 33B",
+    email: "hc1427@srmist.edu.in",
+    password: "srm@3",
+    name: "Harish Prashanth",
+    busNumber: "Bus 11",
   },
   {
     email: "rm3456@srmist.edu.in",
@@ -114,12 +117,15 @@ const travellerData = [
 
 async function main() {
   console.log("Seeding database...");
+  const adminPassword =
+    (process.env.ADMIN_PASSWORD || "").trim() || DEFAULT_ADMIN_PASSWORD;
 
   // Delete in correct order (respect foreign keys)
   await prisma.traveller.deleteMany();
   await prisma.driver.deleteMany();
   await prisma.stop.deleteMany();
   await prisma.bus.deleteMany();
+  await prisma.adminCredential.deleteMany();
 
   // Seed buses with stops
   for (const bus of busData) {
@@ -177,6 +183,19 @@ async function main() {
     });
   }
   console.log(`✅ Seeded ${travellerData.length} travellers`);
+
+  const adminPasswordHash = await bcrypt.hash(adminPassword, SALT_ROUNDS);
+  await prisma.adminCredential.upsert({
+    where: { id: 1 },
+    create: {
+      id: 1,
+      passwordHash: adminPasswordHash,
+    },
+    update: {
+      passwordHash: adminPasswordHash,
+    },
+  });
+  console.log("✅ Seeded admin credential");
 }
 
 main()

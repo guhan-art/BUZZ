@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { API_BASE_URL } from "../../constants/api";
+import { adminToken } from "../../constants/auth";
 import { clearCachedUrl, fetchJsonWithCache } from "../../constants/api-cache";
 import { adminStyles as s } from "./styles";
 import type { Bus, Driver } from "./types";
@@ -95,14 +96,14 @@ export function DriverManager() {
       if (editingDriver) {
         const res = await fetch(`${DRIVERS_URL}/${editingDriver.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
           body,
         });
         if (!res.ok) throw new Error((await res.json()).error);
       } else {
         const res = await fetch(DRIVERS_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
           body,
         });
         if (!res.ok) throw new Error((await res.json()).error);
@@ -139,7 +140,7 @@ export function DriverManager() {
     try {
       await fetch(`${DRIVERS_URL}/${d.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ isActive: !d.isActive }),
       });
       clearCachedUrl(DRIVERS_URL);

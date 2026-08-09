@@ -49,3 +49,9 @@ model Traveller {
 
   @@index([busId])
 }
+
+model AdminCredential {
+  id           Int      @id @default(1)
+  passwordHash String   @db.VarChar(255)
+  updatedAt    DateTime @updatedAt
+}

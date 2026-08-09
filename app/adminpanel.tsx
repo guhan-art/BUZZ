@@ -2,17 +2,18 @@
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { API_BASE_URL } from "../constants/api";
+import { adminToken } from "../constants/auth";
 
 interface Bus {
   id: number;
@@ -36,7 +37,7 @@ export default function AdminPanel() {
   const fetchBuses = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/buses`);
+      const res = await fetch(`${API_BASE_URL}/admin/buses`, { headers: { "Authorization": `Bearer ${adminToken}` } });
       const data: Bus[] = await res.json();
       setBuses(data);
       const comments: Record<number, string> = {};
@@ -63,7 +64,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/buses/${bus.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: newComment }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -91,13 +92,11 @@ export default function AdminPanel() {
           try {
             await fetch(`${API_BASE_URL}/admin/buses/${bus.id}`, {
               method: "PUT",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
               body: JSON.stringify({ comment: "" }),
             });
             setBuses((prev) =>
-              prev.map((b) =>
-                b.id === bus.id ? { ...b, comment: "" } : b,
-              ),
+              prev.map((b) => (b.id === bus.id ? { ...b, comment: "" } : b)),
             );
             setBusComments((prev) => ({ ...prev, [bus.id]: "" }));
           } catch {
@@ -121,7 +120,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/announcement`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: globalComment.trim() }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -148,7 +147,7 @@ export default function AdminPanel() {
           try {
             await fetch(`${API_BASE_URL}/admin/announcement`, {
               method: "PUT",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
               body: JSON.stringify({ comment: "" }),
             });
             await fetchBuses();
@@ -171,7 +170,7 @@ export default function AdminPanel() {
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#1976d2" />
+          <Ionicons name="arrow-back" size={24} color="#1B346A" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Admin Panel</Text>
       </View>
@@ -179,7 +178,7 @@ export default function AdminPanel() {
       {loading ? (
         <ActivityIndicator
           size="large"
-          color="#1976d2"
+          color="#2C77F4"
           style={{ marginTop: 60 }}
         />
       ) : (
@@ -191,7 +190,7 @@ export default function AdminPanel() {
           <View style={s.globalCard}>
             <View style={s.globalHeader}>
               <View style={s.iconCircle}>
-                <Ionicons name="megaphone" size={24} color="#f7971e" />
+                <Ionicons name="megaphone" size={24} color="#B45309" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={s.globalTitle}>Announce to All Buses</Text>
@@ -253,7 +252,7 @@ export default function AdminPanel() {
                 {/* Bus info */}
                 <View style={s.busInfoRow}>
                   <View style={s.busIconWrap}>
-                    <Ionicons name="bus" size={22} color="#1976d2" />
+                    <Ionicons name="bus" size={22} color="#2C77F4" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={s.busName}>{bus.number}</Text>
@@ -261,11 +260,7 @@ export default function AdminPanel() {
                   </View>
                   {bus.comment ? (
                     <View style={s.hasCommentBadge}>
-                      <Ionicons
-                        name="chatbubble"
-                        size={12}
-                        color="#f7971e"
-                      />
+                      <Ionicons name="chatbubble" size={12} color="#f7971e" />
                     </View>
                   ) : null}
                 </View>
@@ -326,11 +321,7 @@ export default function AdminPanel() {
                       <ActivityIndicator color="#fff" size="small" />
                     ) : (
                       <>
-                        <Ionicons
-                          name="checkmark"
-                          size={16}
-                          color="#fff"
-                        />
+                        <Ionicons name="checkmark" size={16} color="#fff" />
                         <Text style={s.busSaveBtnText}>Save</Text>
                       </>
                     )}
@@ -352,24 +343,26 @@ export default function AdminPanel() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f7fa" },
+  container: { flex: 1, backgroundColor: "#F7FAFF" },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 54,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowColor: "#9DB4DA",
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(188,207,238,0.75)",
   },
   backBtn: { padding: 8 },
   headerTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#1976d2",
+    color: "#162B57",
     marginLeft: 12,
   },
   scrollContent: {
@@ -379,17 +372,19 @@ const s = StyleSheet.create({
 
   /* Global Card */
   globalCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 16,
     padding: 18,
     marginBottom: 20,
     elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowColor: "#9DB4DA",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 2 },
     borderLeftWidth: 4,
-    borderLeftColor: "#f7971e",
+    borderLeftColor: "#E99B16",
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   globalHeader: {
     flexDirection: "row",
@@ -401,21 +396,21 @@ const s = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "rgba(247,151,30,0.1)",
+    backgroundColor: "rgba(255,245,228,0.95)",
     justifyContent: "center",
     alignItems: "center",
   },
-  globalTitle: { fontSize: 17, fontWeight: "bold", color: "#1a1a2e" },
-  globalDesc: { fontSize: 12, color: "#888", marginTop: 2 },
+  globalTitle: { fontSize: 17, fontWeight: "bold", color: "#162B57" },
+  globalDesc: { fontSize: 12, color: "#4A6290", marginTop: 2 },
   globalInput: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderColor: "#c6d7f5",
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    backgroundColor: "#fafbfc",
+    backgroundColor: "#f7faff",
     minHeight: 50,
-    color: "#333",
+    color: "#162B57",
     marginBottom: 12,
   },
   globalActions: {
@@ -439,7 +434,7 @@ const s = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 10,
-    backgroundColor: "#f7971e",
+    backgroundColor: "#E99B16",
     gap: 6,
     elevation: 2,
   },
@@ -449,22 +444,24 @@ const s = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#555",
+    color: "#2A4374",
     marginBottom: 12,
     letterSpacing: 0.3,
   },
 
   /* Bus Card */
   busCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowColor: "#9DB4DA",
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 1 },
+    borderWidth: 1,
+    borderColor: "rgba(188,207,238,0.75)",
   },
   busInfoRow: {
     flexDirection: "row",
@@ -476,12 +473,12 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "#e3eef9",
+    backgroundColor: "rgba(225,237,255,0.86)",
     justifyContent: "center",
     alignItems: "center",
   },
-  busName: { fontSize: 16, fontWeight: "bold", color: "#1976d2" },
-  busRoute: { fontSize: 12, color: "#888", marginTop: 1 },
+  busName: { fontSize: 16, fontWeight: "bold", color: "#162B57" },
+  busRoute: { fontSize: 12, color: "#4A6290", marginTop: 1 },
   hasCommentBadge: {
     width: 28,
     height: 28,
@@ -493,32 +490,32 @@ const s = StyleSheet.create({
 
   /* Current comment */
   currentComment: {
-    backgroundColor: "#fffbf0",
+    backgroundColor: "rgba(255,247,228,0.9)",
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
     borderLeftWidth: 3,
-    borderLeftColor: "#f7971e",
+    borderLeftColor: "#E99B16",
   },
   currentCommentLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#c47d0a",
+    color: "#B45309",
     textTransform: "uppercase",
     marginBottom: 3,
   },
-  currentCommentText: { fontSize: 13, color: "#444", lineHeight: 19 },
+  currentCommentText: { fontSize: 13, color: "#2A4374", lineHeight: 19 },
 
   /* Comment input */
   commentInput: {
     borderWidth: 1,
-    borderColor: "#e8e8e8",
+    borderColor: "#c6d7f5",
     borderRadius: 10,
     padding: 10,
     fontSize: 14,
-    backgroundColor: "#fafbfc",
+    backgroundColor: "#f7faff",
     minHeight: 44,
-    color: "#333",
+    color: "#162B57",
     marginBottom: 10,
   },
 
@@ -539,7 +536,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "#1976d2",
+    backgroundColor: "#2C77F4",
     gap: 5,
     elevation: 2,
   },
@@ -548,7 +545,7 @@ const s = StyleSheet.create({
   btnDisabled: { backgroundColor: "#b0bec5", elevation: 0 },
   emptyText: {
     textAlign: "center",
-    color: "#999",
+    color: "#4A6290",
     marginTop: 30,
     fontSize: 15,
   },

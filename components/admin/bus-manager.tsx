@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { API_BASE_URL } from "../../constants/api";
+import { adminToken } from "../../constants/auth";
 import { clearCachedUrl, fetchJsonWithCache } from "../../constants/api-cache";
 import { adminStyles as s } from "./styles";
 import type { Bus, Stop } from "./types";
@@ -94,14 +95,14 @@ export function BusManager() {
       if (editingBus) {
         const res = await fetch(`${BUSES_URL}/${editingBus.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
           body,
         });
         if (!res.ok) throw new Error((await res.json()).error);
       } else {
         const res = await fetch(BUSES_URL, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
           body,
         });
         if (!res.ok) throw new Error((await res.json()).error);
@@ -155,7 +156,7 @@ export function BusManager() {
     try {
       const res = await fetch(`${API_BASE_URL}/admin/stops`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({
           name: stopName.trim(),
           lat: Number(stopLat),
@@ -208,7 +209,7 @@ export function BusManager() {
     try {
       const res = await fetch(`${BUSES_URL}/${commentBusId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: commentInput.trim() }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -229,7 +230,7 @@ export function BusManager() {
     try {
       const res = await fetch(`${BUSES_URL}/${commentBusId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${adminToken}` },
         body: JSON.stringify({ comment: "" }),
       });
       if (!res.ok) throw new Error("Failed");

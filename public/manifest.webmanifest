@@ -1,0 +1,19 @@
+{
+  "name": "BUZZ Campus Bus Tracker",
+  "short_name": "BUZZ",
+  "description": "Real-time campus bus tracking for students and drivers.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
