@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     BUZZ App - Clean build & start both backend + frontend.
 
@@ -187,7 +187,7 @@ $backendJob = Start-Job -Name "BuzzBackend" -ScriptBlock {
     param($dir, $port)
     Set-Location $dir
     $env:PORT = $port
-    npx nodemon server.js 2>&1
+    npx nodemon src/server.js 2>&1
 } -ArgumentList "$root\backend", $BackendPort
 
 Write-Host "  -> Backend starting on port $BackendPort (Job Id: $($backendJob.Id))" -ForegroundColor Green
