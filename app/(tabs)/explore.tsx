@@ -10,7 +10,7 @@ import {
   DriverManager,
   PasswordGate,
   adminStyles as s,
-} from "../../components/admin";
+} from '@/src/features/admin/components/ui';
 
 export default function AdminPanelTab() {
   const router = useRouter();

@@ -16,9 +16,9 @@ import {
     Marker,
     Polyline,
     PROVIDER_GOOGLE,
-} from "../components/map-view";
-import { API_BASE_URL } from "../constants/api";
-import { fetchJsonWithCache } from "../constants/api-cache";
+} from '@/src/features/bus-tracking/components/map-view';
+import { API_BASE_URL } from '@/src/core/api/api';
+import { fetchJsonWithCache } from '@/src/core/api/api-cache';
 
 interface Stop {
   id: number;

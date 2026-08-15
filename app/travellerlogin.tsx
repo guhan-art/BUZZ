@@ -17,8 +17,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { API_BASE_URL } from "../constants/api";
-import { Colors } from "../constants/theme";
+import { API_BASE_URL } from '@/src/core/api/api';
+import { Colors } from '@/src/core/theme/theme';
 
 const { width } = Dimensions.get("window");
 

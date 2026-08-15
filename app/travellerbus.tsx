@@ -21,8 +21,8 @@ import {
   Marker,
   Polyline,
   PROVIDER_GOOGLE,
-} from "../components/map-view";
-import { API_BASE_URL } from "../constants/api";
+} from '@/src/features/bus-tracking/components/map-view';
+import { API_BASE_URL } from '@/src/core/api/api';
 
 const TRAVELLER_FALLBACK_REFRESH_INTERVAL_MS = 60000;
 

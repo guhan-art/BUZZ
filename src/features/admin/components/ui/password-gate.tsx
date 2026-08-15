@@ -4,9 +4,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { API_BASE_URL } from "../../constants/api";
+import { API_BASE_URL } from '@/src/core/api/api';
 import { adminStyles as s } from "./styles";
-import { setAdminToken } from "../../constants/auth";
+import { setAdminToken } from '@/src/core/auth/auth';
 
 export function PasswordGate({ onUnlock }: { onUnlock: () => void }) {
   const [password, setPassword] = useState("");

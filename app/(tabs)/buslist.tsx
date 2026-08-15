@@ -11,8 +11,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { API_BASE_URL } from "../../constants/api";
-import { fetchJsonWithCache } from "../../constants/api-cache";
+import { API_BASE_URL } from '@/src/core/api/api';
+import { fetchJsonWithCache } from '@/src/core/api/api-cache';
 
 interface Bus {
   id: string;

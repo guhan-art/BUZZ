@@ -14,8 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { API_BASE_URL } from "../constants/api";
-import { adminToken } from "../constants/auth";
+import { API_BASE_URL } from '@/src/core/api/api';
+import { adminToken } from '@/src/core/auth/auth';
 
 interface Bus {
   id: number;

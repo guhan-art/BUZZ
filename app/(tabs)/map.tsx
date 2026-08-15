@@ -5,7 +5,7 @@ import {
     MapView,
     PROVIDER_GOOGLE,
     type Region,
-} from "../../components/map-view";
+} from '@/src/features/bus-tracking/components/map-view';
 
 export default function MapScreen() {
   const chennaiRegion: Region = {

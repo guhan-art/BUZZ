@@ -11,9 +11,9 @@ import {
     View,
 } from "react-native";
 
-import { API_BASE_URL } from "../../constants/api";
-import { adminToken } from "../../constants/auth";
-import { clearCachedUrl, fetchJsonWithCache } from "../../constants/api-cache";
+import { API_BASE_URL } from '@/src/core/api/api';
+import { adminToken } from '@/src/core/auth/auth';
+import { clearCachedUrl, fetchJsonWithCache } from '@/src/core/api/api-cache';
 import { adminStyles as s } from "./styles";
 import type { Bus, Stop } from "./types";
 

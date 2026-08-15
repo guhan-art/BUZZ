@@ -22,7 +22,7 @@ const os = require("os");
 const http = require("http");
 const { WebSocketServer } = require("ws");
 const jwt = require("jsonwebtoken");
-const { requireAdmin, requireDriver, JWT_SECRET } = require("./middleware/auth");
+const { requireAdmin, requireDriver, JWT_SECRET } = require('./middleware/auth.middleware.js');
 
 const app = express();
 const prisma = new PrismaClient();
