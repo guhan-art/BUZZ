@@ -63,6 +63,31 @@ interface Bus {
   stops: Stop[];
 }
 
+const StaticRouteOverlay = React.memo(({ stops }: { stops: Stop[] }) => {
+  return (
+    <>
+      {stops.map((stop) => (
+        <Marker key={stop.id} coordinate={{ latitude: stop.lat, longitude: stop.lng }} title={stop.name} />
+      ))}
+      {stops.length > 1 && (
+        <Polyline coordinates={stops.map((s) => ({ latitude: s.lat, longitude: s.lng }))} strokeColor="#E99B16" strokeWidth={4} />
+      )}
+    </>
+  );
+});
+
+const LiveBusMarker = React.memo(({ lat, lng, name }: { lat: number; lng: number; name: string }) => {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return (
+    <Marker coordinate={{ latitude: lat, longitude: lng }} title={name} description="Current Location" tracksViewChanges={false}>
+      <View style={st.busMarker}>
+        <View style={st.busMarkerPulse} />
+        <Ionicons name="bus" size={20} color="#000" />
+      </View>
+    </Marker>
+  );
+});
+
 export default function TravellerBusScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -272,19 +297,21 @@ export default function TravellerBusScreen() {
   const [lat, lng] = bus.location?.split(",").map((v) => Number(String(v).trim())) ?? [];
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
-  const region = hasCoords
-    ? {
-        latitude: lat,
-        longitude: lng,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      }
-    : {
-        latitude: 13.0827,
-        longitude: 80.2707,
-        latitudeDelta: 0.2,
-        longitudeDelta: 0.2,
-      };
+  const region = React.useMemo(() => {
+    return hasCoords
+      ? {
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }
+      : {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          latitudeDelta: 0.2,
+          longitudeDelta: 0.2,
+        };
+  }, [hasCoords, lat, lng]);
 
   const stops = Array.isArray(bus.stops) ? bus.stops : [];
 
@@ -297,22 +324,8 @@ export default function TravellerBusScreen() {
       showsMyLocationButton={showUserLocation}
       customMapStyle={darkMapStyle}
     >
-      {hasCoords && (
-        <Marker coordinate={{ latitude: lat, longitude: lng }} title={bus.name} description="Current Location" tracksViewChanges={false}>
-          <View style={st.busMarker}>
-            <View style={st.busMarkerPulse} />
-            <Ionicons name="bus" size={20} color="#000" />
-          </View>
-        </Marker>
-      )}
-
-      {stops.map((stop) => (
-        <Marker key={stop.id} coordinate={{ latitude: stop.lat, longitude: stop.lng }} title={stop.name} />
-      ))}
-
-      {stops.length > 1 && (
-        <Polyline coordinates={stops.map((s) => ({ latitude: s.lat, longitude: s.lng }))} strokeColor="#E99B16" strokeWidth={4} />
-      )}
+      <LiveBusMarker lat={lat} lng={lng} name={bus.name} />
+      <StaticRouteOverlay stops={stops} />
     </MapView>
   );
 

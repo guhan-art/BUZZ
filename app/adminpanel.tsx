@@ -6,8 +6,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Keyboard,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +23,86 @@ interface Bus {
   route: string;
   comment: string;
 }
+
+const AdminBusCard = React.memo(({ 
+  bus, 
+  commentInput, 
+  onCommentChange, 
+  isSaving, 
+  hasChanged, 
+  onClear, 
+  onSave 
+}: { 
+  bus: Bus; 
+  commentInput: string; 
+  onCommentChange: (text: string) => void; 
+  isSaving: boolean; 
+  hasChanged: boolean; 
+  onClear: () => void; 
+  onSave: () => void;
+}) => {
+  return (
+    <BlurView intensity={20} tint="dark" style={s.busCard}>
+      <View style={s.busInfoRow}>
+        <View style={s.busIconWrap}>
+          <Ionicons name="bus" size={22} color="#E99B16" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={s.busName}>{bus.number}</Text>
+          <Text style={s.busRoute}>{bus.route}</Text>
+        </View>
+        {bus.comment ? (
+          <View style={s.hasCommentBadge}>
+            <Ionicons name="chatbox-ellipses" size={14} color="#E99B16" />
+          </View>
+        ) : null}
+      </View>
+
+      {bus.comment ? (
+        <View style={s.currentComment}>
+          <Text style={s.currentCommentLabel}>ACTIVE BROADCAST:</Text>
+          <Text style={s.currentCommentText}>{bus.comment}</Text>
+        </View>
+      ) : null}
+
+      <TextInput
+        style={s.commentInput}
+        placeholder={bus.comment ? "Update broadcast..." : "Initiate broadcast..."}
+        placeholderTextColor="#55555A"
+        value={commentInput}
+        onChangeText={onCommentChange}
+        multiline
+        numberOfLines={2}
+        textAlignVertical="top"
+        editable={!isSaving}
+      />
+
+      <View style={s.busActions}>
+        {bus.comment ? (
+          <TouchableOpacity onPress={onClear} disabled={isSaving} style={s.busClearBtn}>
+            <Ionicons name="trash" size={16} color="#FF453A" />
+          </TouchableOpacity>
+        ) : (
+          <View />
+        )}
+        <TouchableOpacity
+          style={[s.busSaveBtn, (!hasChanged || isSaving) && s.btnDisabled]}
+          onPress={onSave}
+          disabled={!hasChanged || isSaving}
+        >
+          {isSaving ? (
+            <ActivityIndicator color="#000" size="small" />
+          ) : (
+            <>
+              <Ionicons name="checkmark" size={16} color="#000" />
+              <Text style={s.busSaveBtnText}>Confirm</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+    </BlurView>
+  );
+});
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -167,123 +247,77 @@ export default function AdminPanel() {
       {loading ? (
         <ActivityIndicator size="large" color="#E99B16" style={{ marginTop: 60 }} />
       ) : (
-        <ScrollView contentContainerStyle={s.scrollContent} keyboardShouldPersistTaps="handled">
-          
-          <BlurView intensity={30} tint="dark" style={s.globalCard}>
-            <View style={s.globalHeader}>
-              <View style={s.iconCircle}>
-                <Ionicons name="megaphone" size={24} color="#E99B16" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.globalTitle}>Global Broadcast</Text>
-                <Text style={s.globalDesc}>Transmit message to all vehicles</Text>
-              </View>
-            </View>
-            <TextInput
-              style={s.globalInput}
-              placeholder="Enter broadcast message..."
-              placeholderTextColor="#55555A"
-              value={globalComment}
-              onChangeText={setGlobalComment}
-              multiline
-              numberOfLines={2}
-              textAlignVertical="top"
-              editable={!savingGlobal}
-            />
-            <View style={s.globalActions}>
-              <TouchableOpacity style={s.clearAllBtn} onPress={clearAllComments} disabled={savingGlobal}>
-                <Ionicons name="trash" size={16} color="#FF453A" />
-                <Text style={s.clearAllBtnText}>Clear All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.applyAllBtn, (!globalComment.trim() || savingGlobal) && s.btnDisabled]}
-                onPress={saveGlobalComment}
-                disabled={!globalComment.trim() || savingGlobal}
-              >
-                {savingGlobal ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="radio-outline" size={16} color="#000" />
-                    <Text style={s.applyAllBtnText}>Transmit</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </BlurView>
-
-          <Text style={s.sectionTitle}>Fleet Status ({buses.length})</Text>
-
-          {buses.map((bus) => {
-            const isSaving = savingBusId === bus.id;
-            const changed = hasCommentChanged(bus);
-            return (
-              <BlurView intensity={20} tint="dark" key={bus.id} style={s.busCard}>
-                <View style={s.busInfoRow}>
-                  <View style={s.busIconWrap}>
-                    <Ionicons name="bus" size={22} color="#E99B16" />
+        <FlatList
+          data={buses}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={s.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <>
+              <BlurView intensity={30} tint="dark" style={s.globalCard}>
+                <View style={s.globalHeader}>
+                  <View style={s.iconCircle}>
+                    <Ionicons name="megaphone" size={24} color="#E99B16" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.busName}>{bus.number}</Text>
-                    <Text style={s.busRoute}>{bus.route}</Text>
+                    <Text style={s.globalTitle}>Global Broadcast</Text>
+                    <Text style={s.globalDesc}>Transmit message to all vehicles</Text>
                   </View>
-                  {bus.comment ? (
-                    <View style={s.hasCommentBadge}>
-                      <Ionicons name="chatbox-ellipses" size={14} color="#E99B16" />
-                    </View>
-                  ) : null}
                 </View>
-
-                {bus.comment ? (
-                  <View style={s.currentComment}>
-                    <Text style={s.currentCommentLabel}>ACTIVE BROADCAST:</Text>
-                    <Text style={s.currentCommentText}>{bus.comment}</Text>
-                  </View>
-                ) : null}
-
                 <TextInput
-                  style={s.commentInput}
-                  placeholder={bus.comment ? "Update broadcast..." : "Initiate broadcast..."}
+                  style={s.globalInput}
+                  placeholder="Enter broadcast message..."
                   placeholderTextColor="#55555A"
-                  value={busComments[bus.id] || ""}
-                  onChangeText={(t) => setBusComments((prev) => ({ ...prev, [bus.id]: t }))}
+                  value={globalComment}
+                  onChangeText={setGlobalComment}
                   multiline
                   numberOfLines={2}
                   textAlignVertical="top"
-                  editable={!isSaving}
+                  editable={!savingGlobal}
                 />
-
-                <View style={s.busActions}>
-                  {bus.comment ? (
-                    <TouchableOpacity onPress={() => clearBusComment(bus)} disabled={isSaving} style={s.busClearBtn}>
-                      <Ionicons name="trash" size={16} color="#FF453A" />
-                    </TouchableOpacity>
-                  ) : (
-                    <View />
-                  )}
+                <View style={s.globalActions}>
+                  <TouchableOpacity style={s.clearAllBtn} onPress={clearAllComments} disabled={savingGlobal}>
+                    <Ionicons name="trash" size={16} color="#FF453A" />
+                    <Text style={s.clearAllBtnText}>Clear All</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
-                    style={[s.busSaveBtn, (!changed || isSaving) && s.btnDisabled]}
-                    onPress={() => saveBusComment(bus)}
-                    disabled={!changed || isSaving}
+                    style={[s.applyAllBtn, (!globalComment.trim() || savingGlobal) && s.btnDisabled]}
+                    onPress={saveGlobalComment}
+                    disabled={!globalComment.trim() || savingGlobal}
                   >
-                    {isSaving ? (
+                    {savingGlobal ? (
                       <ActivityIndicator color="#000" size="small" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark" size={16} color="#000" />
-                        <Text style={s.busSaveBtnText}>Confirm</Text>
+                        <Ionicons name="radio-outline" size={16} color="#000" />
+                        <Text style={s.applyAllBtnText}>Transmit</Text>
                       </>
                     )}
                   </TouchableOpacity>
                 </View>
               </BlurView>
+              <Text style={s.sectionTitle}>Fleet Status ({buses.length})</Text>
+            </>
+          }
+          renderItem={({ item: bus }) => {
+            const isSaving = savingBusId === bus.id;
+            const changed = hasCommentChanged(bus);
+            const handleCommentChange = (t: string) => setBusComments((prev) => ({ ...prev, [bus.id]: t }));
+            return (
+              <AdminBusCard
+                bus={bus}
+                commentInput={busComments[bus.id] || ""}
+                onCommentChange={handleCommentChange}
+                isSaving={isSaving}
+                hasChanged={changed}
+                onClear={() => clearBusComment(bus)}
+                onSave={() => saveBusComment(bus)}
+              />
             );
-          })}
-
-          {buses.length === 0 && <Text style={s.emptyText}>No vehicles detected</Text>}
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
+          }}
+          ListEmptyComponent={<Text style={s.emptyText}>No vehicles detected</Text>}
+          ListFooterComponent={<View style={{ height: 40 }} />}
+        />
       )}
     </LinearGradient>
   );
