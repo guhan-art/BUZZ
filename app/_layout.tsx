@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import { Platform } from "react-native";
 import "react-native-reanimated";
 
-import { PwaInstallBanner } from "@/components/pwa-install-banner";
+import { PwaInstallBanner } from "@/src/core/ui/pwa-install-banner";
 
 export const unstable_settings = {
   anchor: "(tabs)",
