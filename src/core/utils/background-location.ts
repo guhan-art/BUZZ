@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
 
-import { API_BASE_URL } from "../constants/api";
+import { API_BASE_URL } from '@/src/core/api/api';
 
 const BACKGROUND_LOCATION_TASK = "background-location-task";
 

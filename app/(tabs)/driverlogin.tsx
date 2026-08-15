@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { API_BASE_URL } from '@/src/core/api/api';
 import { driverToken, setDriverToken } from '@/src/core/auth/auth';
-import { startBackgroundLocation, stopBackgroundLocation } from "../../utils/background-location";
+import { startBackgroundLocation, stopBackgroundLocation } from '@/src/core/utils/background-location';
 
 const LOCATION_DISTANCE_INTERVAL_M = 30;
 const LOCATION_TIME_INTERVAL_MS = 10000;

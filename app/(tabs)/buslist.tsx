@@ -150,7 +150,7 @@ export default function BusListScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="bus-outline" size={64} color="#ccc" />
           <Text style={styles.emptyText}>No buses available</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchBuses}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchBuses(true)}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
