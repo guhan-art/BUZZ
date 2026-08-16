@@ -3,7 +3,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -273,6 +273,31 @@ export default function TravellerBusScreen() {
     fetchBusDetails();
   };
 
+  const [lat, lng] = useMemo(() => {
+    const parts = bus?.location?.split(",").map((v) => Number(String(v).trim())) ?? [];
+    return [parts[0] ?? NaN, parts[1] ?? NaN];
+  }, [bus?.location]);
+
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+  const region = useMemo(() => {
+    return hasCoords
+      ? {
+          latitude: lat,
+          longitude: lng,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }
+      : {
+          latitude: 13.0827,
+          longitude: 80.2707,
+          latitudeDelta: 0.2,
+          longitudeDelta: 0.2,
+        };
+  }, [hasCoords, lat, lng]);
+
+  const stops = useMemo(() => (Array.isArray(bus?.stops) ? bus!.stops : []), [bus?.stops]);
+
   if (loading) {
     return (
       <LinearGradient colors={["#000000", "#050508", "#111116"]} style={st.loadingContainer}>
@@ -293,27 +318,6 @@ export default function TravellerBusScreen() {
       </LinearGradient>
     );
   }
-
-  const [lat, lng] = bus.location?.split(",").map((v) => Number(String(v).trim())) ?? [];
-  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-
-  const region = React.useMemo(() => {
-    return hasCoords
-      ? {
-          latitude: lat,
-          longitude: lng,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        }
-      : {
-          latitude: 13.0827,
-          longitude: 80.2707,
-          latitudeDelta: 0.2,
-          longitudeDelta: 0.2,
-        };
-  }, [hasCoords, lat, lng]);
-
-  const stops = Array.isArray(bus.stops) ? bus.stops : [];
 
   const renderMap = (style: any) => (
     <MapView
