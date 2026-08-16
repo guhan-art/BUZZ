@@ -51,10 +51,11 @@ export function BusManager() {
       const data = await fetchJsonWithCache<Bus[]>(BUSES_URL, {
         ttlMs: 30_000,
         forceRefresh: true,
+        headers: { "Authorization": `Bearer ${adminToken}` },
       });
       setBuses(data);
     } catch {
-      Alert.alert("Error", "Could not load buses");
+      Alert.alert("Error", "Could not load buses. Make sure you are logged in as admin.");
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,10 @@ export function BusManager() {
           style: "destructive",
           onPress: async () => {
             try {
-              await fetch(`${BUSES_URL}/${bus.id}`, { method: "DELETE" });
+              await fetch(`${BUSES_URL}/${bus.id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${adminToken}` },
+              });
               clearCachedUrl(BUSES_URL);
               fetchBuses();
             } catch {
@@ -184,6 +188,7 @@ export function BusManager() {
           try {
             await fetch(`${API_BASE_URL}/admin/stops/${stop.id}`, {
               method: "DELETE",
+              headers: { "Authorization": `Bearer ${adminToken}` },
             });
             clearCachedUrl(BUSES_URL);
             fetchBuses();

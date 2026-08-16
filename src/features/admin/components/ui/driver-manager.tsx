@@ -40,6 +40,7 @@ export function DriverManager() {
       const data = await fetchJsonWithCache<Driver[]>(DRIVERS_URL, {
         ttlMs: 30_000,
         forceRefresh: true,
+        headers: { "Authorization": `Bearer ${adminToken}` },
       });
       setDrivers(data);
     } catch {
@@ -53,6 +54,7 @@ export function DriverManager() {
     try {
       const data = await fetchJsonWithCache<Bus[]>(BUSES_URL, {
         ttlMs: 30_000,
+        headers: { "Authorization": `Bearer ${adminToken}` },
       });
       setBuses(data);
     } catch {
@@ -125,7 +127,10 @@ export function DriverManager() {
         style: "destructive",
         onPress: async () => {
           try {
-            await fetch(`${DRIVERS_URL}/${d.id}`, { method: "DELETE" });
+            await fetch(`${DRIVERS_URL}/${d.id}`, {
+              method: "DELETE",
+              headers: { "Authorization": `Bearer ${adminToken}` },
+            });
             clearCachedUrl(DRIVERS_URL);
             fetchDrivers();
           } catch {
